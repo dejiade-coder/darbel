@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------------------------------------------------------------------------
+   Darbel — Design tokens
+   Restrained, institutional, governmental in spirit. Not flashy.
+   ------------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    /* HSL values, no commas — for Tailwind's "hsl(var(--x))" pattern */
+    --background: 36 33% 97%;        /* parchment */
+    --foreground: 213 18% 7%;         /* near-black ink */
+
+    --muted: 36 18% 92%;
+    --muted-foreground: 213 9% 38%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 213 18% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 18% 7%;
+
+    --primary: 184 71% 20%;           /* deep teal accent */
+    --primary-foreground: 36 33% 97%;
+
+    --secondary: 36 18% 92%;
+    --secondary-foreground: 213 18% 7%;
+
+    --destructive: 0 56% 39%;
+    --destructive-foreground: 36 33% 97%;
+
+    --border: 36 12% 86%;
+    --input: 36 12% 86%;
+    --ring: 184 71% 20%;
+
+    --radius: 0.25rem;                /* tighter, more institutional */
+  }
+
+  .dark {
+    --background: 213 18% 7%;
+    --foreground: 36 33% 95%;
+    --muted: 213 10% 18%;
+    --muted-foreground: 213 9% 65%;
+    --card: 213 18% 10%;
+    --card-foreground: 36 33% 95%;
+    --popover: 213 18% 10%;
+    --popover-foreground: 36 33% 95%;
+    --primary: 184 50% 50%;
+    --primary-foreground: 213 18% 7%;
+    --secondary: 213 10% 18%;
+    --secondary-foreground: 36 33% 95%;
+    --destructive: 0 56% 50%;
+    --destructive-foreground: 36 33% 95%;
+    --border: 213 10% 22%;
+    --input: 213 10% 22%;
+    --ring: 184 50% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html, body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'ss01', 'ss02', 'cv01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Typography utilities — display font for headers, mono for codes/IDs */
+@layer utilities {
+  .font-display {
+    font-family: 'Newsreader', Georgia, serif;
+    font-feature-settings: 'liga', 'kern';
+    letter-spacing: -0.015em;
+  }
+  .font-mono {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-feature-settings: 'zero', 'ss01';
+  }
+  /* A subtle paper texture overlay used on auth pages */
+  .bg-paper {
+    background-image:
+      radial-gradient(
+        circle at 1px 1px,
+        rgba(14, 17, 22, 0.04) 1px,
+        transparent 0
+      );
+    background-size: 24px 24px;
+  }
+  /* Hairline rule */
+  .hairline {
+    @apply border-t border-ink-200;
+  }
+}

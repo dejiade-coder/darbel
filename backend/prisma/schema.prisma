@@ -1,0 +1,259 @@
+// =============================================================================
+// Darbel — Prisma Schema (Phase 1)
+// This schema mirrors database/01-schema.sql. The SQL files are the source
+// of truth for RLS, triggers, and audit infrastructure; Prisma is the
+// type-safe access layer.
+//
+// Convention: Prisma never owns the schema in production. Database migrations
+// are managed via raw SQL in database/*.sql. Prisma `db pull` keeps this
+// file in sync. Run `prisma generate` after any change.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Jurisdictions & Tenants
+// -----------------------------------------------------------------------------
+
+model Jurisdiction {
+  id               String   @id @default(uuid()) @db.Uuid
+  code             String   @unique @db.VarChar(10)
+  name             String   @db.VarChar(120)
+  countryCode      String   @map("country_code") @db.Char(2)
+  currencyCode     String   @map("currency_code") @db.Char(3)
+  phoneCountryCode String   @map("phone_country_code") @db.VarChar(5)
+  timezone         String   @default("Africa/Lagos") @db.VarChar(50)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenants Tenant[]
+
+  @@map("jurisdictions")
+}
+
+model Tenant {
+  id                     String   @id @default(uuid()) @db.Uuid
+  code                   String   @unique @db.VarChar(20)
+  legalName              String   @map("legal_name") @db.VarChar(200)
+  displayName            String   @map("display_name") @db.VarChar(120)
+  jurisdictionId         String   @map("jurisdiction_id") @db.Uuid
+  contactEmail           String   @map("contact_email")
+  contactPhone           String?  @map("contact_phone") @db.VarChar(20)
+  isPlatformOperator     Boolean  @default(false) @map("is_platform_operator")
+  isActive               Boolean  @default(true) @map("is_active")
+  paymentModel           String   @default("FINANCE_APPROVAL") @map("payment_model") @db.VarChar(20)
+  checkboxPaidThreshold  Decimal? @map("checkbox_paid_threshold") @db.Decimal(14, 2)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  jurisdiction Jurisdiction    @relation(fields: [jurisdictionId], references: [id])
+  users        User[]
+  roles        Role[]
+  settings     TenantSetting[]
+
+  @@index([jurisdictionId])
+  @@map("tenants")
+}
+
+model TenantSetting {
+  tenantId     String   @map("tenant_id") @db.Uuid
+  settingKey   String   @map("setting_key") @db.VarChar(80)
+  settingValue Json     @map("setting_value")
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, settingKey])
+  @@map("tenant_settings")
+}
+
+// -----------------------------------------------------------------------------
+// IAM
+// -----------------------------------------------------------------------------
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(80)
+  module      String   @db.VarChar(40)
+  description String
+  isSensitive Boolean  @default(false) @map("is_sensitive")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model Role {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @db.VarChar(40)
+  displayName  String   @map("display_name") @db.VarChar(120)
+  description  String?
+  isSystemRole Boolean  @default(false) @map("is_system_role")
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@unique([code, tenantId], map: "roles_code_scope_unique")
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  grantedAt    DateTime @default(now()) @map("granted_at") @db.Timestamptz()
+  grantedBy    String?  @map("granted_by") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  email                String
+  phone                String?   @db.VarChar(20)
+  fullName             String    @map("full_name") @db.VarChar(200)
+  passwordHash         String    @map("password_hash")
+  passwordChangedAt    DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz()
+  mustChangePassword   Boolean   @default(false) @map("must_change_password")
+  mfaEnabled           Boolean   @default(false) @map("mfa_enabled")
+  mfaSecretEnc         String?   @map("mfa_secret_enc")
+  isActive             Boolean   @default(true) @map("is_active")
+  isLocked             Boolean   @default(false) @map("is_locked")
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz()
+  failedLoginCount     Int       @default(0) @map("failed_login_count")
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz()
+  lastLoginIp          String?   @map("last_login_ip") @db.Inet
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  createdBy            String?   @map("created_by") @db.Uuid
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz()
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  roles           UserRole[]
+  sessions        Session[]
+  passwordHistory PasswordHistory[]
+
+  @@unique([tenantId, email], map: "users_tenant_email_unique")
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz()
+  assignedBy String?  @map("assigned_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model PasswordHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("password_history")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  ipAddress        String?   @map("ip_address") @db.Inet
+  userAgent        String?   @map("user_agent")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz()
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model LoginAttempt {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String
+  tenantId      String?  @map("tenant_id") @db.Uuid
+  ipAddress     String?  @map("ip_address") @db.Inet
+  userAgent     String?  @map("user_agent")
+  success       Boolean
+  failureReason String?  @map("failure_reason") @db.VarChar(80)
+  attemptedAt   DateTime @default(now()) @map("attempted_at") @db.Timestamptz()
+
+  @@index([email, attemptedAt(sort: Desc)])
+  @@index([ipAddress, attemptedAt(sort: Desc)])
+  @@map("login_attempts")
+}
+
+// -----------------------------------------------------------------------------
+// Audit
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id             BigInt   @id @default(autoincrement())
+  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz()
+  tenantId       String?  @map("tenant_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorEmail     String?  @map("actor_email")
+  action         String   @db.VarChar(10)
+  tableName      String   @map("table_name") @db.VarChar(80)
+  recordId       String   @map("record_id")
+  beforeState    Json?    @map("before_state")
+  afterState     Json?    @map("after_state")
+  changedFields  String[] @map("changed_fields")
+  ipAddress      String?  @map("ip_address") @db.Inet
+  userAgent      String?  @map("user_agent")
+  requestId      String?  @map("request_id") @db.Uuid
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([actorUserId, occurredAt(sort: Desc)])
+  @@index([tableName, recordId])
+  @@map("audit_log")
+}
+
+model SensitiveAccessLog {
+  id                 BigInt   @id @default(autoincrement())
+  occurredAt         DateTime @default(now()) @map("occurred_at") @db.Timestamptz()
+  tenantId           String   @map("tenant_id") @db.Uuid
+  actorUserId        String   @map("actor_user_id") @db.Uuid
+  accessedTable      String   @map("accessed_table") @db.VarChar(80)
+  accessedRecordId   String   @map("accessed_record_id")
+  accessedField      String   @map("accessed_field") @db.VarChar(80)
+  purpose            String?
+  ipAddress          String?  @map("ip_address") @db.Inet
+  requestId          String?  @map("request_id") @db.Uuid
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([actorUserId, occurredAt(sort: Desc)])
+  @@map("sensitive_access_log")
+}

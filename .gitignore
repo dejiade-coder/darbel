@@ -1,0 +1,29 @@
+﻿# Darbel — root .gitignore
+# Per-subproject ignores live in backend/.gitignore and frontend/.gitignore.
+# This file catches anything that lands at the project root.
+
+# Dependencies / build artifacts
+node_modules/
+dist/
+.next/
+out/
+coverage/
+
+# Environment files (NEVER commit credentials)
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Temp / scratch
+*.tmp
+*.bak
+scratch/
