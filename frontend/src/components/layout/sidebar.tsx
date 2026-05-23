@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   UserCog,
   Users,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/roles', label: 'Roles & Permissions', icon: UserCog, requireAny: ['role.view'] },
   { href: '/dashboard/audit', label: 'Audit log', icon: FileSearch, requireAny: ['audit.view'] },
   { href: '/dashboard/settings', label: 'My account', icon: ClipboardList },
+  { href: '/dashboard/trade-categories', label: 'Trade Categories', icon: Tag, requireAny: ['trade.set_fee'] },
 ];
 
 export function Sidebar({ permissions }: { permissions: string[] }) {
