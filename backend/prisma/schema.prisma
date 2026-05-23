@@ -35,6 +35,7 @@ model Jurisdiction {
   updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz()
 
   tenants Tenant[]
+  tradeCategories TradeCategory[]
 
   @@map("jurisdictions")
 }
@@ -58,6 +59,7 @@ model Tenant {
   users        User[]
   roles        Role[]
   settings     TenantSetting[]
+  tradeCategoryFees TradeCategoryFee[]
 
   @@index([jurisdictionId])
   @@map("tenants")
@@ -256,4 +258,45 @@ model SensitiveAccessLog {
   @@index([tenantId, occurredAt(sort: Desc)])
   @@index([actorUserId, occurredAt(sort: Desc)])
   @@map("sensitive_access_log")
+}
+
+// -----------------------------------------------------------------------------
+// Trade Categories (Phase 2 Slice 1)
+// -----------------------------------------------------------------------------
+
+model TradeCategory {
+  id                  String   @id @default(uuid()) @db.Uuid
+  jurisdictionId      String   @map("jurisdiction_id") @db.Uuid
+  code                String   @db.VarChar(40)
+  displayName         String   @map("display_name") @db.VarChar(120)
+  sector              String   @db.VarChar(20)
+  description         String?
+  validityPeriodDays  Int      @default(365) @map("validity_period_days")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  jurisdiction Jurisdiction          @relation(fields: [jurisdictionId], references: [id])
+  fees         TradeCategoryFee[]
+
+  @@unique([jurisdictionId, code], map: "trade_categories_jurisdiction_code_unique")
+  @@index([jurisdictionId])
+  @@map("trade_categories")
+}
+
+model TradeCategoryFee {
+  tenantId         String   @map("tenant_id") @db.Uuid
+  tradeCategoryId  String   @map("trade_category_id") @db.Uuid
+  feeAmount        Decimal  @map("fee_amount") @db.Decimal(14, 2)
+  currency         String   @default("NGN") @db.Char(3)
+  effectiveFrom    DateTime @default(now()) @map("effective_from") @db.Timestamptz()
+  updatedBy        String?  @map("updated_by") @db.Uuid
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tradeCategory TradeCategory @relation(fields: [tradeCategoryId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, tradeCategoryId])
+  @@index([tenantId])
+  @@map("trade_category_fees")
 }
