@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
+import { TradeCategoriesModule } from './modules/trade-categories/trade-categories.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestIdMiddleware } from './common/interceptors/request-id.middleware';
 
@@ -65,6 +66,7 @@ import { RequestIdMiddleware } from './common/interceptors/request-id.middleware
     RolesModule,
     AuditModule,
     HealthModule,
+    TradeCategoriesModule,
   ],
   providers: [
     {
