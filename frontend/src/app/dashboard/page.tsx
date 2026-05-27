@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
 import type { UserPublic } from '@/lib/api/types';
 import { formatDateTime } from '@/lib/utils';
-import { ArrowRight, Users, FileSearch, UserCog } from 'lucide-react';
+import { ArrowRight, ClipboardPlus, Users, FileSearch, UserCog } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = { title: 'Overview' };
@@ -25,6 +25,7 @@ export default async function DashboardHome() {
   const hasUserView = actor.permissions.includes('user.view');
   const hasRoleView = actor.permissions.includes('role.view');
   const hasAudit = actor.permissions.includes('audit.view');
+  const hasHandlerView = actor.permissions.includes('handler.view');
 
   return (
     <div className="space-y-8">
@@ -54,6 +55,14 @@ export default async function DashboardHome() {
       )}
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {hasHandlerView && (
+          <ConsoleCard
+            href="/dashboard/registrations"
+            icon={ClipboardPlus}
+            title="Registrations"
+            description="Register food handlers, review intake details, and prepare records for medical screening."
+          />
+        )}
         {hasUserView && (
           <ConsoleCard
             href="/dashboard/users"

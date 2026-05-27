@@ -44,8 +44,7 @@ export async function listTradeCategories(params?: {
   const query = searchParams.toString();
   const url = `/trade-categories${query ? `?${query}` : ''}`;
 
-  const response = await apiFetch(url, { method: 'GET' });
-  return response.data || [];
+  return apiFetch<TradeCategoryWithFee[]>(url, { method: 'GET', authenticated: true });
 }
 
 /**
@@ -56,14 +55,14 @@ export async function setTradeCategoryFee(
   tradeCategoryId: string,
   feeAmount: number
 ): Promise<TradeCategoryFee> {
-  const response = await apiFetch('/trade-categories/fees', {
+  return apiFetch<TradeCategoryFee>('/trade-categories/fees', {
     method: 'POST',
-    body: JSON.stringify({
+    authenticated: true,
+    body: {
       tradeCategoryId,
       feeAmount,
-    }),
+    },
   });
-  return response.data;
 }
 
 /**
@@ -74,16 +73,16 @@ export async function updateTradeCategoryFee(
   tradeCategoryId: string,
   newFeeAmount: number
 ): Promise<TradeCategoryFee> {
-  const response = await apiFetch(
+  return apiFetch<TradeCategoryFee>(
     `/trade-categories/fees/${tradeCategoryId}`,
     {
       method: 'PUT',
-      body: JSON.stringify({
+      authenticated: true,
+      body: {
         feeAmount: newFeeAmount,
-      }),
+      },
     }
   );
-  return response.data;
 }
 
 /**
@@ -95,5 +94,6 @@ export async function deleteTradeCategoryFee(
 ): Promise<void> {
   await apiFetch(`/trade-categories/fees/${tradeCategoryId}`, {
     method: 'DELETE',
+    authenticated: true,
   });
 }

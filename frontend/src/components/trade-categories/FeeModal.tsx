@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TradeCategoryWithFee } from '@/lib/api/trade-categories';
+import type { TradeCategoryWithFee } from '@/app/dashboard/trade-categories/actions';
 
 interface FeeModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ export function FeeModal({
   isLoading = false,
 }: FeeModalProps) {
   const [amount, setAmount] = useState(
-    category?.fee?.fee_amount?.toString() || ''
+    getFeeAmount(category?.fee)?.toString() || ''
   );
   const [error, setError] = useState('');
 
@@ -78,7 +78,7 @@ export function FeeModal({
               {mode === 'set' ? 'Set Fee' : 'Update Fee'}
             </h2>
             <p className="text-sm text-neutral-600 mt-1">
-              {category.display_name}
+              {getDisplayName(category)}
             </p>
           </div>
 
@@ -124,7 +124,7 @@ export function FeeModal({
             {mode === 'edit' && category.fee && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-700">
-                  Current fee: <strong>₦{category.fee.feeAmount ?? (category.fee as any).fee_amount}</strong>
+                  Current fee: <strong>NGN {getFeeAmount(category.fee)?.toLocaleString()}</strong>
                 </p>
               </div>
             )}
@@ -157,4 +157,13 @@ export function FeeModal({
       </div>
     </>
   );
+}
+
+function getFeeAmount(fee: TradeCategoryWithFee['fee']): number | undefined {
+  if (!fee) return undefined;
+  return fee.feeAmount ?? (fee as { fee_amount?: number }).fee_amount;
+}
+
+function getDisplayName(category: TradeCategoryWithFee): string {
+  return category.displayName ?? (category as { display_name?: string }).display_name ?? '';
 }

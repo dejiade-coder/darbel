@@ -60,6 +60,7 @@ model Tenant {
   roles        Role[]
   settings     TenantSetting[]
   tradeCategoryFees TradeCategoryFee[]
+  handlerRegistrations HandlerRegistration[]
 
   @@index([jurisdictionId])
   @@map("tenants")
@@ -154,6 +155,7 @@ model User {
   roles           UserRole[]
   sessions        Session[]
   passwordHistory PasswordHistory[]
+  handlerRegistrations HandlerRegistration[] @relation("HandlerRegistrationRegistrar")
 
   @@unique([tenantId, email], map: "users_tenant_email_unique")
   @@index([tenantId])
@@ -299,4 +301,41 @@ model TradeCategoryFee {
   @@id([tenantId, tradeCategoryId])
   @@index([tenantId])
   @@map("trade_category_fees")
+}
+
+// -----------------------------------------------------------------------------
+// Handler Registrations (Phase 2 Slice 2)
+// -----------------------------------------------------------------------------
+
+model HandlerRegistration {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  registrarUserId       String    @map("registrar_user_id") @db.Uuid
+  registrarName         String    @map("registrar_name") @db.VarChar(200)
+  registrarEmail        String    @map("registrar_email")
+  registrarPhone        String?   @map("registrar_phone") @db.VarChar(20)
+  registrationDate      DateTime  @default(now()) @map("registration_date") @db.Date
+  firstName             String?   @map("first_name") @db.VarChar(100)
+  lastName              String?   @map("last_name") @db.VarChar(100)
+  phone                 String?   @db.VarChar(20)
+  email                 String?
+  gender                String?   @db.VarChar(40)
+  tradeCategory         String?   @map("trade_category") @db.VarChar(120)
+  businessName          String?   @map("business_name") @db.VarChar(200)
+  businessAddress       String?   @map("business_address")
+  passportPhotoReceived Boolean   @default(false) @map("passport_photo_received")
+  status                String    @default("DRAFT") @db.VarChar(40)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  submittedAt           DateTime? @map("submitted_at") @db.Timestamptz()
+  createdBy             String?   @map("created_by") @db.Uuid
+  updatedBy             String?   @map("updated_by") @db.Uuid
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  registrar User   @relation("HandlerRegistrationRegistrar", fields: [registrarUserId], references: [id])
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([registrarUserId, createdAt(sort: Desc)])
+  @@index([tenantId, status])
+  @@map("handler_registrations")
 }

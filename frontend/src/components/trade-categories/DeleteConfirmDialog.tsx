@@ -1,7 +1,7 @@
 // src/components/trade-categories/DeleteConfirmDialog.tsx
 'use client';
 
-import { TradeCategoryWithFee } from '@/lib/api/trade-categories';
+import type { TradeCategoryWithFee } from '@/app/dashboard/trade-categories/actions';
 
 interface DeleteConfirmDialogProps {
   isOpen: boolean;
@@ -53,10 +53,10 @@ export function DeleteConfirmDialog({
           <div className="px-6 py-4">
             <p className="text-sm text-neutral-700">
               Are you sure you want to delete the fee for{' '}
-              <strong>{category.display_name}</strong>?
+              <strong>{getDisplayName(category)}</strong>?
             </p>
             <p className="text-sm text-neutral-600 mt-2">
-              Current fee: <strong>₦{category.fee?.fee_amount}</strong>
+              Current fee: <strong>NGN {getFeeAmount(category.fee)?.toLocaleString()}</strong>
             </p>
             <p className="text-sm text-red-600 mt-3">
               This action cannot be undone. Handlers will no longer be able to
@@ -87,4 +87,13 @@ export function DeleteConfirmDialog({
       </div>
     </>
   );
+}
+
+function getFeeAmount(fee: TradeCategoryWithFee['fee']): number | undefined {
+  if (!fee) return undefined;
+  return fee.feeAmount ?? (fee as { fee_amount?: number }).fee_amount;
+}
+
+function getDisplayName(category: TradeCategoryWithFee): string {
+  return category.displayName ?? (category as { display_name?: string }).display_name ?? '';
 }
