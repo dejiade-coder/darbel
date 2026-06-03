@@ -2,11 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, CheckCircle2, FileUp, Save, Send, UserRound } from 'lucide-react';
+import { ArrowLeft, Ban, CalendarDays, CheckCircle2, FileUp, Save, Send, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { saveRegistrationAction, type RegistrationStatus } from './actions';
+import {
+  cancelRegistrationAction,
+  saveRegistrationAction,
+  type EditableRegistrationStatus,
+  type RegistrationStatus,
+} from './actions';
 
 const DRAFT_KEY = 'darbel.registrationDraft';
 
@@ -83,16 +88,20 @@ export function NewRegistrationForm({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [registrationId, setRegistrationId] = useState<string | undefined>(registration?.id);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [status, setStatus] = useState(registration?.status === 'SUBMITTED_FOR_REVIEW' ? 'Submitted for review' : 'Draft');
+  const [status, setStatus] = useState<RegistrationStatus>(registration?.status ?? 'DRAFT');
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const isEditing = Boolean(registration);
+  const isBusy = isSaving || isSubmitting || isCancelling;
+  const isCancelled = status === 'CANCELLED';
+  const canCancel = Boolean(registrationId) && status === 'DRAFT';
 
   useEffect(() => {
     if (registration) {
       setForm(fromRegistration(registration));
       setRegistrationId(registration.id);
-      setStatus(registration.status === 'SUBMITTED_FOR_REVIEW' ? 'Submitted for review' : 'Draft');
+      setStatus(registration.status);
       return;
     }
 
@@ -112,7 +121,7 @@ export function NewRegistrationForm({
       });
       const parsed = JSON.parse(raw) as { registrationId?: string; status?: string };
       setRegistrationId(parsed.registrationId);
-      if (parsed.status) setStatus(parsed.status);
+      if (isRegistrationStatus(parsed.status)) setStatus(parsed.status);
       setNotice({ type: 'success', message: 'Draft restored from this browser.' });
     } catch {
       window.localStorage.removeItem(DRAFT_KEY);
@@ -135,10 +144,10 @@ export function NewRegistrationForm({
       const saved = await saveRegistrationAction(toPayload('DRAFT'), registrationId);
       const savedId = saved.id || registrationId;
       setRegistrationId(savedId);
-      setStatus('Draft saved');
+      setStatus(saved.status);
       window.localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ ...form, registrationId: savedId, status: 'Draft saved' }),
+        JSON.stringify({ ...form, registrationId: savedId, status: saved.status }),
       );
       setNotice({ type: 'success', message: 'Draft saved to the backend database.' });
     } catch (error) {
@@ -174,10 +183,10 @@ export function NewRegistrationForm({
       const saved = await saveRegistrationAction(toPayload('SUBMITTED_FOR_REVIEW'), registrationId);
       const savedId = saved.id || registrationId;
       setRegistrationId(savedId);
-      setStatus('Submitted for review');
+      setStatus(saved.status);
       window.localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ ...form, registrationId: savedId, status: 'Submitted for review' }),
+        JSON.stringify({ ...form, registrationId: savedId, status: saved.status }),
       );
       setNotice({
         type: 'success',
@@ -193,7 +202,28 @@ export function NewRegistrationForm({
     }
   }
 
-  function toPayload(nextStatus: RegistrationStatus) {
+  async function cancelDraft() {
+    if (!registrationId) return;
+    const confirmed = window.confirm('Cancel this draft registration? You can still see it in the registrations list.');
+    if (!confirmed) return;
+
+    setIsCancelling(true);
+    try {
+      const cancelled = await cancelRegistrationAction(registrationId);
+      setStatus(cancelled.status);
+      window.localStorage.removeItem(DRAFT_KEY);
+      setNotice({ type: 'success', message: 'Draft registration cancelled.' });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to cancel draft.',
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
+  function toPayload(nextStatus: EditableRegistrationStatus) {
     return {
       registrationDate: form.registrationDate,
       firstName: form.firstName,
@@ -227,12 +257,18 @@ export function NewRegistrationForm({
             Capture a food handler record for review before payment and medical screening.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={saveDraft} disabled={isSaving || isSubmitting}>
+        <div className="flex flex-wrap gap-2">
+          {canCancel && (
+            <Button type="button" variant="destructive" onClick={cancelDraft} disabled={isBusy}>
+              <Ban className="mr-2 h-4 w-4" />
+              {isCancelling ? 'Cancelling...' : 'Cancel draft'}
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={saveDraft} disabled={isBusy || isCancelled}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? 'Saving...' : 'Save draft'}
           </Button>
-          <Button type="button" onClick={submitForReview} disabled={isSaving || isSubmitting}>
+          <Button type="button" onClick={submitForReview} disabled={isBusy || isCancelled}>
             <Send className="mr-2 h-4 w-4" />
             {isSubmitting ? 'Submitting...' : 'Submit for review'}
           </Button>
@@ -319,7 +355,7 @@ export function NewRegistrationForm({
           <div className="rounded-sm border border-ink-200 bg-white p-5">
             <h2 className="text-sm font-semibold text-ink-900">Registration summary</h2>
             <div className="mt-4 space-y-3 text-sm">
-              <SummaryRow label="Status" value={status} />
+              <SummaryRow label="Status" value={displayStatus(status)} />
               <SummaryRow label="Registrar" value={registrar.name || registrar.email || 'Current user'} />
               <SummaryRow label="Date" value={form.registrationDate || 'Not selected'} />
               <SummaryRow label="Handler" value={fullName} />
@@ -491,4 +527,14 @@ function fromRegistration(registration: EditableRegistration): FormState {
     address: registration.businessAddress ?? '',
     passportPhoto: registration.passportPhotoReceived,
   };
+}
+
+function displayStatus(status: RegistrationStatus): string {
+  if (status === 'SUBMITTED_FOR_REVIEW') return 'Submitted for review';
+  if (status === 'CANCELLED') return 'Cancelled';
+  return 'Draft';
+}
+
+function isRegistrationStatus(value: unknown): value is RegistrationStatus {
+  return value === 'DRAFT' || value === 'SUBMITTED_FOR_REVIEW' || value === 'CANCELLED';
 }

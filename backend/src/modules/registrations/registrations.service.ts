@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
-import { ResourceNotFoundException } from '../../common/errors/domain.exceptions';
+import {
+  ResourceConflictException,
+  ResourceNotFoundException,
+} from '../../common/errors/domain.exceptions';
 import type {
   ListRegistrationsQueryDto,
   UpsertRegistrationDto,
@@ -117,6 +120,25 @@ export class RegistrationsService {
             dto.status === 'SUBMITTED_FOR_REVIEW'
               ? existing.submittedAt ?? new Date()
               : existing.submittedAt,
+          updatedBy: ctx.userId,
+        },
+      });
+      return toPublic(updated);
+    });
+  }
+
+  async cancel(ctx: ActorContext, id: string): Promise<RegistrationPublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const existing = await tx.handlerRegistration.findUnique({ where: { id } });
+      if (!existing) throw new ResourceNotFoundException('Registration', id);
+      if (existing.status !== 'DRAFT') {
+        throw new ResourceConflictException('Only draft registrations can be cancelled');
+      }
+
+      const updated = await tx.handlerRegistration.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
           updatedBy: ctx.userId,
         },
       });

@@ -2,7 +2,8 @@
 
 import { apiFetch } from '@/lib/api/server-client';
 
-export type RegistrationStatus = 'DRAFT' | 'SUBMITTED_FOR_REVIEW';
+export type RegistrationStatus = 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'CANCELLED';
+export type EditableRegistrationStatus = Exclude<RegistrationStatus, 'CANCELLED'>;
 
 export type RegistrationPayload = {
   registrationDate: string;
@@ -15,7 +16,7 @@ export type RegistrationPayload = {
   businessName?: string;
   businessAddress: string;
   passportPhotoReceived: boolean;
-  status: RegistrationStatus;
+  status: EditableRegistrationStatus;
 };
 
 export type RegistrationResult = {
@@ -46,6 +47,19 @@ export async function saveRegistrationAction(
 
   if (!result?.id) {
     throw new Error('The backend did not return a saved registration. Please try again.');
+  }
+
+  return result;
+}
+
+export async function cancelRegistrationAction(id: string): Promise<RegistrationResult> {
+  const result = await apiFetch<RegistrationResult>(`/registrations/${id}`, {
+    method: 'DELETE',
+    authenticated: true,
+  });
+
+  if (!result?.id) {
+    throw new Error('The backend did not return the cancelled registration. Please try again.');
   }
 
   return result;

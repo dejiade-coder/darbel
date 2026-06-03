@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-export const RegistrationStatusDto = z.enum(['DRAFT', 'SUBMITTED_FOR_REVIEW']);
+export const RegistrationStatusDto = z.enum(['DRAFT', 'SUBMITTED_FOR_REVIEW', 'CANCELLED']);
 export type RegistrationStatusDto = z.infer<typeof RegistrationStatusDto>;
+
+const UpsertRegistrationStatusDto = z.enum(['DRAFT', 'SUBMITTED_FOR_REVIEW']);
 
 export const UpsertRegistrationDto = z.object({
   registrationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, {
@@ -16,7 +18,7 @@ export const UpsertRegistrationDto = z.object({
   businessName: z.string().trim().max(200).optional().or(z.literal('')),
   businessAddress: z.string().trim().max(1000).optional().or(z.literal('')),
   passportPhotoReceived: z.boolean().optional().default(false),
-  status: RegistrationStatusDto.optional().default('DRAFT'),
+  status: UpsertRegistrationStatusDto.optional().default('DRAFT'),
 }).superRefine((value, ctx) => {
   if (value.status !== 'SUBMITTED_FOR_REVIEW') return;
   const required: Array<[keyof typeof value, string]> = [

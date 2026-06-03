@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -72,6 +73,16 @@ export class RegistrationsController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.registrations.update(toContext(actor, req), id, body);
+  }
+
+  @Delete(':id')
+  @Permissions('handler.update')
+  cancel(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.registrations.cancel(toContext(actor, req), id);
   }
 }
 

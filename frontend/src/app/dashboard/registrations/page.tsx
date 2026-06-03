@@ -23,7 +23,7 @@ type Registration = {
   phone: string | null;
   tradeCategory: string | null;
   businessName: string | null;
-  status: 'DRAFT' | 'SUBMITTED_FOR_REVIEW';
+  status: 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'CANCELLED';
   createdAt: string;
   submittedAt: string | null;
 };
@@ -31,6 +31,7 @@ type Registration = {
 const statusStyles: Record<string, string> = {
   Draft: 'bg-ink-100 text-ink-700',
   'Submitted for review': 'bg-info/10 text-info',
+  Cancelled: 'bg-danger/10 text-danger',
 };
 
 type RegistrationsSearchParams = {
@@ -68,7 +69,9 @@ export default async function RegistrationsPage({
 
   const draftCount = items.filter((item) => item.status === 'DRAFT').length;
   const reviewCount = items.filter((item) => item.status === 'SUBMITTED_FOR_REVIEW').length;
-  const missingDocs = items.filter((item) => !item.tradeCategory || !item.phone).length;
+  const cancelledCount = items.filter((item) => item.status === 'CANCELLED').length;
+  const missingDocs = items.filter((item) => item.status !== 'CANCELLED' && (!item.tradeCategory || !item.phone)).length;
+  const activeCount = items.length - cancelledCount;
 
   return (
     <div className="space-y-6">
@@ -91,7 +94,7 @@ export default async function RegistrationsPage({
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={ClipboardList} label="Active records" value={`${items.length}`} detail="Saved registrations" />
+        <Metric icon={ClipboardList} label="Active records" value={`${activeCount}`} detail="Saved registrations" />
         <Metric icon={Clock3} label="Drafts" value={`${draftCount}`} detail="Still being captured" />
         <Metric icon={FileWarning} label="Needs details" value={`${missingDocs}`} detail="Incomplete draft fields" />
         <Metric icon={BadgeCheck} label="Awaiting review" value={`${reviewCount}`} detail="Submitted by registrars" />
@@ -128,6 +131,12 @@ export default async function RegistrationsPage({
               <Link href={buildRegistrationsHref({ q, status: 'SUBMITTED_FOR_REVIEW' })}>
                 <Filter className="mr-2 h-3.5 w-3.5" />
                 Review
+              </Link>
+            </Button>
+            <Button asChild variant={statusFilter === 'CANCELLED' ? 'default' : 'outline'} size="sm">
+              <Link href={buildRegistrationsHref({ q, status: 'CANCELLED' })}>
+                <Filter className="mr-2 h-3.5 w-3.5" />
+                Cancelled
               </Link>
             </Button>
             {(q || statusFilter) && (
@@ -206,7 +215,9 @@ export default async function RegistrationsPage({
 }
 
 function displayStatus(status: Registration['status']): string {
-  return status === 'SUBMITTED_FOR_REVIEW' ? 'Submitted for review' : 'Draft';
+  if (status === 'SUBMITTED_FOR_REVIEW') return 'Submitted for review';
+  if (status === 'CANCELLED') return 'Cancelled';
+  return 'Draft';
 }
 
 function formatDate(value: string): string {
