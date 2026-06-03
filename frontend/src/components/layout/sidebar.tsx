@@ -7,6 +7,7 @@ import {
   ClipboardPlus,
   FileSearch,
   LayoutGrid,
+  CreditCard,
   ShieldCheck,
   UserCog,
   Users,
@@ -25,6 +26,7 @@ interface NavItem {
 const ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutGrid },
   { href: '/dashboard/registrations', label: 'Registrations', icon: ClipboardPlus, requireAny: ['handler.view'] },
+  { href: '/dashboard/payments', label: 'Payments', icon: CreditCard, requireAny: ['payment.view'] },
   { href: '/dashboard/users', label: 'Users', icon: Users, requireAny: ['user.view'] },
   { href: '/dashboard/roles', label: 'Roles & Permissions', icon: UserCog, requireAny: ['role.view'] },
   { href: '/dashboard/audit', label: 'Audit log', icon: FileSearch, requireAny: ['audit.view'] },

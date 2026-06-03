@@ -6,6 +6,7 @@ import {
   NewRegistrationForm,
   type EditableRegistration,
 } from '../new/new-registration-form';
+import { PaymentPanel, type RegistrationPayment } from './payment-panel';
 
 export const metadata = { title: 'Edit registration' };
 
@@ -14,12 +15,15 @@ export default async function EditRegistrationPage({ params }: { params: { id: s
 
   let profile: UserPublic | null = null;
   let registration: EditableRegistration | null = null;
+  let payments: RegistrationPayment[] = [];
 
   try {
-    [profile, registration] = await Promise.all([
+    const [profileResult, registrationResult] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
       apiFetch<EditableRegistration>(`/registrations/${params.id}`, { authenticated: true }),
     ]);
+    profile = profileResult;
+    registration = registrationResult;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     if (!(e instanceof ApiError)) throw e;
@@ -27,15 +31,37 @@ export default async function EditRegistrationPage({ params }: { params: { id: s
 
   if (!registration) notFound();
 
+  if (actor?.permissions.includes('payment.view')) {
+    try {
+      const paymentsResult = await apiFetch<{ items: RegistrationPayment[]; nextCursor: string | null }>(
+        `/payments?handlerRegistrationId=${params.id}`,
+        { authenticated: true },
+      );
+      payments = paymentsResult.items;
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+    }
+  }
+
   return (
-    <NewRegistrationForm
-      registrar={{
-        name: profile?.fullName ?? actor?.email ?? registration.registrarEmail,
-        email: profile?.email ?? actor?.email ?? registration.registrarEmail,
-        phone: profile?.phone ?? '',
-        isActive: profile?.isActive ?? true,
-      }}
-      registration={registration}
-    />
+    <div className="space-y-6">
+      <NewRegistrationForm
+        registrar={{
+          name: profile?.fullName ?? actor?.email ?? registration.registrarEmail,
+          email: profile?.email ?? actor?.email ?? registration.registrarEmail,
+          phone: profile?.phone ?? '',
+          isActive: profile?.isActive ?? true,
+        }}
+        registration={registration}
+      />
+      {actor?.permissions.includes('payment.view') && (
+        <PaymentPanel
+          registrationId={registration.id}
+          registrationStatus={registration.status}
+          canRecordPayment={actor.permissions.includes('payment.record')}
+          payments={payments}
+        />
+      )}
+    </div>
   );
 }

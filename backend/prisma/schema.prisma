@@ -61,6 +61,7 @@ model Tenant {
   settings     TenantSetting[]
   tradeCategoryFees TradeCategoryFee[]
   handlerRegistrations HandlerRegistration[]
+  payments             Payment[]
 
   @@index([jurisdictionId])
   @@map("tenants")
@@ -156,6 +157,7 @@ model User {
   sessions        Session[]
   passwordHistory PasswordHistory[]
   handlerRegistrations HandlerRegistration[] @relation("HandlerRegistrationRegistrar")
+  recordedPayments     Payment[]             @relation("PaymentRecorder")
 
   @@unique([tenantId, email], map: "users_tenant_email_unique")
   @@index([tenantId])
@@ -333,9 +335,44 @@ model HandlerRegistration {
 
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   registrar User   @relation("HandlerRegistrationRegistrar", fields: [registrarUserId], references: [id])
+  payments  Payment[]
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([registrarUserId, createdAt(sort: Desc)])
   @@index([tenantId, status])
   @@map("handler_registrations")
+}
+
+// -----------------------------------------------------------------------------
+// Payments (Phase 2 Slice 3)
+// -----------------------------------------------------------------------------
+
+model Payment {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  handlerRegistrationId String    @map("handler_registration_id") @db.Uuid
+  amount                Decimal   @db.Decimal(14, 2)
+  currency              String    @default("NGN") @db.Char(3)
+  method                String    @db.VarChar(30)
+  reference             String?   @db.VarChar(120)
+  receiptNumber         String?   @map("receipt_number") @db.VarChar(120)
+  status                String    @default("RECORDED") @db.VarChar(40)
+  paidAt                DateTime  @default(now()) @map("paid_at") @db.Timestamptz()
+  recordedBy            String?   @map("recorded_by") @db.Uuid
+  recordedAt            DateTime  @default(now()) @map("recorded_at") @db.Timestamptz()
+  approvedBy            String?   @map("approved_by") @db.Uuid
+  approvedAt            DateTime? @map("approved_at") @db.Timestamptz()
+  notes                 String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  handlerRegistration HandlerRegistration @relation(fields: [handlerRegistrationId], references: [id], onDelete: Restrict)
+  recorder            User?               @relation("PaymentRecorder", fields: [recordedBy], references: [id])
+
+  @@unique([tenantId, receiptNumber], map: "payments_tenant_receipt_unique")
+  @@index([tenantId, paidAt(sort: Desc)])
+  @@index([handlerRegistrationId, paidAt(sort: Desc)])
+  @@index([tenantId, status])
+  @@map("payments")
 }

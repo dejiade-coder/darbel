@@ -13,6 +13,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { TradeCategoriesModule } from './modules/trade-categories/trade-categories.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestIdMiddleware } from './common/interceptors/request-id.middleware';
 
@@ -69,6 +70,7 @@ import { RequestIdMiddleware } from './common/interceptors/request-id.middleware
     HealthModule,
     TradeCategoriesModule,
     RegistrationsModule,
+    PaymentsModule,
   ],
   providers: [
     {
