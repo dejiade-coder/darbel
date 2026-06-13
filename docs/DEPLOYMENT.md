@@ -82,6 +82,14 @@ npm.cmd audit --audit-level=moderate
 
 The frontend currently builds on Next.js 16.2.9 and should report zero npm audit vulnerabilities.
 
+Container packaging is available through the production compose example:
+
+```powershell
+docker compose -f docker-compose.production.example.yml build
+```
+
+Before using it, copy and fill `backend/.env.production` and `frontend/.env.production`, then replace the sample `NEXT_PUBLIC_API_BASE_URL` build argument with the real API URL.
+
 ## 6. Start Commands
 
 Backend:

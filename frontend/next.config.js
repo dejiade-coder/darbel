@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  output: 'standalone',
   // Backend API base URL is read at build time from env so the client bundle
   // contains a fixed value. For production, set NEXT_PUBLIC_API_BASE_URL.
   env: {
