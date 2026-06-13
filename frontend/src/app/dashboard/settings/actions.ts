@@ -145,3 +145,32 @@ export async function updateNotificationProvidersAction(
   revalidatePath('/dashboard/settings');
   return { success: 'Notification provider settings saved.' };
 }
+
+export async function updateMessageTemplatesAction(
+  formData: FormData,
+): Promise<{ error?: string; success?: string } | void> {
+  try {
+    await apiFetch('/tenant-settings/message-templates', {
+      method: 'PATCH',
+      authenticated: true,
+      body: {
+        paymentConfirmed: templateFromForm(formData, 'paymentConfirmed'),
+        uidIssued: templateFromForm(formData, 'uidIssued'),
+        medicalScreeningReady: templateFromForm(formData, 'medicalScreeningReady'),
+        certificateReady: templateFromForm(formData, 'certificateReady'),
+      },
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.payload.message : 'Could not save message templates.' };
+  }
+  revalidatePath('/dashboard/settings');
+  return { success: 'Message templates saved.' };
+}
+
+function templateFromForm(formData: FormData, key: string) {
+  return {
+    subject: String(formData.get(`${key}.subject`) ?? ''),
+    body: String(formData.get(`${key}.body`) ?? ''),
+    whatsApp: String(formData.get(`${key}.whatsApp`) ?? ''),
+  };
+}

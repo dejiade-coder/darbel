@@ -20,3 +20,18 @@ export const UpdateNotificationProvidersDto = z.object({
 });
 
 export type UpdateNotificationProvidersDto = z.infer<typeof UpdateNotificationProvidersDto>;
+
+const templateSchema = z.object({
+  subject: z.string().trim().max(160).optional().or(z.literal('')),
+  body: z.string().trim().max(3000).optional().or(z.literal('')),
+  whatsApp: z.string().trim().max(1200).optional().or(z.literal('')),
+});
+
+export const UpdateMessageTemplatesDto = z.object({
+  paymentConfirmed: templateSchema,
+  uidIssued: templateSchema,
+  medicalScreeningReady: templateSchema,
+  certificateReady: templateSchema,
+});
+
+export type UpdateMessageTemplatesDto = z.infer<typeof UpdateMessageTemplatesDto>;

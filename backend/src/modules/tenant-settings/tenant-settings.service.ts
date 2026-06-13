@@ -6,10 +6,11 @@ import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
-import type { UpdateNotificationProvidersDto } from './tenant-settings.dto';
+import type { UpdateMessageTemplatesDto, UpdateNotificationProvidersDto } from './tenant-settings.dto';
 
 const TEMPLATE_KEY = 'certificate_template';
 const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
+const MESSAGE_TEMPLATES_KEY = 'message_templates';
 const MAX_TEMPLATE_SIZE = 8 * 1024 * 1024;
 const ALLOWED_TEMPLATE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
 
@@ -75,6 +76,22 @@ type StoredNotificationProviders = Omit<
   whatsAppAccessToken?: string | null;
 };
 
+export interface MessageTemplateDto {
+  subject: string;
+  body: string;
+  whatsApp: string;
+}
+
+export interface MessageTemplatesDto {
+  paymentConfirmed: MessageTemplateDto;
+  uidIssued: MessageTemplateDto;
+  medicalScreeningReady: MessageTemplateDto;
+  certificateReady: MessageTemplateDto;
+  updatedAt: string | null;
+}
+
+type StoredMessageTemplates = MessageTemplatesDto;
+
 @Injectable()
 export class TenantSettingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -130,6 +147,45 @@ export class TenantSettingsService {
       });
 
       return toNotificationProvidersDto(next);
+    });
+  }
+
+  async getMessageTemplates(ctx: ActorContext): Promise<MessageTemplatesDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: MESSAGE_TEMPLATES_KEY } },
+      });
+      return normalizeMessageTemplates(setting?.settingValue);
+    });
+  }
+
+  async updateMessageTemplates(
+    ctx: ActorContext,
+    dto: UpdateMessageTemplatesDto,
+  ): Promise<MessageTemplatesDto> {
+    const next: StoredMessageTemplates = {
+      paymentConfirmed: normalizeMessageTemplate(dto.paymentConfirmed, DEFAULT_MESSAGE_TEMPLATES.paymentConfirmed),
+      uidIssued: normalizeMessageTemplate(dto.uidIssued, DEFAULT_MESSAGE_TEMPLATES.uidIssued),
+      medicalScreeningReady: normalizeMessageTemplate(dto.medicalScreeningReady, DEFAULT_MESSAGE_TEMPLATES.medicalScreeningReady),
+      certificateReady: normalizeMessageTemplate(dto.certificateReady, DEFAULT_MESSAGE_TEMPLATES.certificateReady),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      await tx.tenantSetting.upsert({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: MESSAGE_TEMPLATES_KEY } },
+        create: {
+          tenantId: ctx.tenantId,
+          settingKey: MESSAGE_TEMPLATES_KEY,
+          settingValue: next as unknown as Prisma.InputJsonValue,
+          updatedBy: ctx.userId,
+        },
+        update: {
+          settingValue: next as unknown as Prisma.InputJsonValue,
+          updatedBy: ctx.userId,
+        },
+      });
+      return next;
     });
   }
 
@@ -349,4 +405,50 @@ function toNotificationProvidersDto(value: StoredNotificationProviders): Notific
 function emptyToNull(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed ? trimmed : null;
+}
+
+const DEFAULT_MESSAGE_TEMPLATES: MessageTemplatesDto = {
+  paymentConfirmed: {
+    subject: 'Darbel payment confirmed',
+    body: 'Hello {{handlerName}}, your payment has been confirmed. Your registration UID is {{uid}}.',
+    whatsApp: 'Darbel: Payment confirmed for {{handlerName}}. UID: {{uid}}.',
+  },
+  uidIssued: {
+    subject: 'Your Darbel UID has been issued',
+    body: 'Hello {{handlerName}}, your Darbel UID is {{uid}}. Please keep it for verification and screening.',
+    whatsApp: 'Darbel UID issued: {{uid}} for {{handlerName}}.',
+  },
+  medicalScreeningReady: {
+    subject: 'Medical screening required',
+    body: 'Hello {{handlerName}}, please proceed for medical screening with UID {{uid}}.',
+    whatsApp: 'Darbel: Medical screening is required for UID {{uid}}.',
+  },
+  certificateReady: {
+    subject: 'Darbel certificate ready',
+    body: 'Hello {{handlerName}}, your compliance certificate is ready. Verify it here: {{verificationUrl}}',
+    whatsApp: 'Darbel certificate ready for {{handlerName}}. Verify: {{verificationUrl}}',
+  },
+  updatedAt: null,
+};
+
+function normalizeMessageTemplates(value: unknown): MessageTemplatesDto {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<StoredMessageTemplates>;
+  return {
+    paymentConfirmed: normalizeMessageTemplate(raw.paymentConfirmed, DEFAULT_MESSAGE_TEMPLATES.paymentConfirmed),
+    uidIssued: normalizeMessageTemplate(raw.uidIssued, DEFAULT_MESSAGE_TEMPLATES.uidIssued),
+    medicalScreeningReady: normalizeMessageTemplate(raw.medicalScreeningReady, DEFAULT_MESSAGE_TEMPLATES.medicalScreeningReady),
+    certificateReady: normalizeMessageTemplate(raw.certificateReady, DEFAULT_MESSAGE_TEMPLATES.certificateReady),
+    updatedAt: raw.updatedAt ?? null,
+  };
+}
+
+function normalizeMessageTemplate(
+  value: Partial<MessageTemplateDto> | undefined,
+  fallback: MessageTemplateDto,
+): MessageTemplateDto {
+  return {
+    subject: value?.subject?.trim() || fallback.subject,
+    body: value?.body?.trim() || fallback.body,
+    whatsApp: value?.whatsApp?.trim() || fallback.whatsApp,
+  };
 }

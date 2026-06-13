@@ -8,7 +8,8 @@ import { ChangePasswordCard } from './change-password-card';
 import { MfaCard } from './mfa-card';
 import { CertificateTemplateCard } from './certificate-template-card';
 import { NotificationProvidersCard, type NotificationProviders } from './notification-providers-card';
-import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateNotificationProvidersAction } from './actions';
+import { MessageTemplatesCard, type MessageTemplates } from './message-templates-card';
+import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateMessageTemplatesAction, updateNotificationProvidersAction } from './actions';
 import { Alert } from '@/components/ui/alert';
 
 export const metadata = { title: 'My account' };
@@ -43,9 +44,10 @@ export default async function SettingsPage() {
   let me: UserPublic | null = null;
   let certificateTemplate: CertificateTemplate = null;
   let notificationProviders: NotificationProviders | null = null;
+  let messageTemplates: MessageTemplates | null = null;
   let loadError: string | null = null;
   try {
-    const [profile, template, providers] = await Promise.all([
+    const [profile, template, providers, templates] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
       actor.permissions.includes('tenant.view')
         ? apiFetch<CertificateTemplate>('/tenant-settings/certificate-template', { authenticated: true })
@@ -53,10 +55,14 @@ export default async function SettingsPage() {
       actor.permissions.includes('tenant.view')
         ? apiFetch<NotificationProviders>('/tenant-settings/notification-providers', { authenticated: true })
         : Promise.resolve(null),
+      actor.permissions.includes('tenant.view')
+        ? apiFetch<MessageTemplates>('/tenant-settings/message-templates', { authenticated: true })
+        : Promise.resolve(null),
     ]);
     me = profile;
     certificateTemplate = template;
     notificationProviders = providers;
+    messageTemplates = templates;
   } catch (e) {
     loadError = e instanceof ApiError ? e.payload.message : 'Could not load profile';
   }
@@ -117,6 +123,13 @@ export default async function SettingsPage() {
           <NotificationProvidersCard
             initialSettings={notificationProviders}
             action={updateNotificationProvidersAction}
+          />
+        )}
+
+        {actor.permissions.includes('tenant.update_own') && messageTemplates && (
+          <MessageTemplatesCard
+            initialTemplates={messageTemplates}
+            action={updateMessageTemplatesAction}
           />
         )}
       </div>
