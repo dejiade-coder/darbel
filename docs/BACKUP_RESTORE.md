@@ -18,25 +18,23 @@ Recommended minimum:
 
 ## PostgreSQL Backup
 
-Run from a secure machine that can reach the database:
+Run the backup helper from a secure machine that can reach the database:
 
 ```powershell
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$env:PGPASSWORD = "<migrator-or-backup-role-password>"
-pg_dump `
-  --host "<db-host>" `
-  --port 5432 `
-  --username "darbel_migrator" `
-  --format custom `
-  --file "darbel-$stamp.dump" `
-  "darbel"
+.\scripts\backup-darbel.ps1 `
+  -DatabaseHost "<db-host>" `
+  -DatabaseName "darbel" `
+  -DatabaseUser "darbel_migrator" `
+  -DatabasePassword "<migrator-or-backup-role-password>" `
+  -StoragePath "backend/storage" `
+  -OutputDirectory "D:\darbel-backups"
 ```
 
-Encrypt and move the dump to offsite storage immediately.
+The script creates a timestamped folder containing the PostgreSQL custom-format dump, upload-storage archive, and a manifest. Encrypt and move the folder to offsite storage immediately.
 
 ## Upload Storage Backup
 
-For local durable disk storage:
+For local durable disk storage, the backup helper archives `backend/storage` together with the database dump. To run storage-only manually:
 
 ```powershell
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -52,24 +50,14 @@ For S3-compatible storage, use the provider's versioning, lifecycle, and replica
 Create an empty staging database first.
 
 ```powershell
-$env:PGPASSWORD = "<migrator-password>"
-pg_restore `
-  --host "<staging-db-host>" `
-  --port 5432 `
-  --username "darbel_migrator" `
-  --dbname "darbel_staging" `
-  --clean `
-  --if-exists `
-  "darbel-YYYYMMDD-HHMMSS.dump"
-```
-
-Restore upload storage:
-
-```powershell
-Expand-Archive `
-  -Path "darbel-storage-YYYYMMDD-HHMMSS.zip" `
-  -DestinationPath "backend/storage" `
-  -Force
+.\scripts\restore-darbel.ps1 `
+  -DatabaseHost "<staging-db-host>" `
+  -DatabaseName "darbel_staging" `
+  -DatabaseUser "darbel_migrator" `
+  -DatabasePassword "<migrator-password>" `
+  -DatabaseDumpPath "D:\darbel-backups\darbel-YYYYMMDD-HHMMSS\darbel-db-YYYYMMDD-HHMMSS.dump" `
+  -StorageArchivePath "D:\darbel-backups\darbel-YYYYMMDD-HHMMSS\darbel-storage-YYYYMMDD-HHMMSS.zip" `
+  -StoragePath "backend/storage"
 ```
 
 Then run the app against staging and verify:
