@@ -18,6 +18,7 @@ export class ReportsService {
       const registrationWhere = buildRegistrationWhere(filters);
       const medicalWhere = buildMedicalWhere(filters);
       const certificateWhere = buildCertificateWhere(filters);
+      const deliveryWhere = buildDeliveryWhere(filters);
       const paymentWhere = buildPaymentWhere(filters);
       const [
         registrations,
@@ -32,6 +33,10 @@ export class ReportsService {
         medicalRejected,
         certificatesValid,
         certificatesExpired,
+        certificateDeliveries,
+        certificatePrints,
+        certificateEmails,
+        certificateWhatsApps,
         registrationsByStatus,
         medicalByStatus,
         certificatesByStatus,
@@ -49,6 +54,10 @@ export class ReportsService {
         tx.medicalScreening.count({ where: { ...medicalWhere, status: 'REJECTED' } }),
         tx.certificate.count({ where: { ...certificateWhere, status: 'VALID' } }),
         tx.certificate.count({ where: { ...certificateWhere, status: 'VALID', expiresAt: { lt: new Date() } } }),
+        tx.certificateDelivery.count({ where: deliveryWhere }),
+        tx.certificateDelivery.count({ where: { ...deliveryWhere, channel: 'PRINT' } }),
+        tx.certificateDelivery.count({ where: { ...deliveryWhere, channel: 'EMAIL' } }),
+        tx.certificateDelivery.count({ where: { ...deliveryWhere, channel: 'WHATSAPP' } }),
         tx.handlerRegistration.groupBy({
           by: ['status'],
           where: registrationWhere,
@@ -88,6 +97,10 @@ export class ReportsService {
         medicalRejected,
         validCertificates: certificatesValid,
         expiredCertificates: certificatesExpired,
+        certificateDeliveries,
+        certificatePrints,
+        certificateEmails,
+        certificateWhatsApps,
         conversion: {
           paymentApprovalRate: percent(paymentsApproved, registrations),
           medicalCompletionRate: percent(medicalApproved + medicalRejected, screenings),
@@ -206,7 +219,10 @@ export class ReportsService {
         where: buildCertificateWhere(filters),
         orderBy: { issuedAt: 'desc' },
         take: 5000,
-        include: { handlerRegistration: true },
+        include: {
+          handlerRegistration: true,
+          deliveries: { orderBy: { performedAt: 'desc' }, take: 1 },
+        },
       });
 
       return toCsv(
@@ -219,19 +235,30 @@ export class ReportsService {
           'certificate_status',
           'issued_at',
           'expires_at',
+          'last_delivery_channel',
+          'last_delivery_status',
+          'last_delivery_recipient',
+          'last_delivery_at',
         ],
-        rows.map((row) => [
-          row.uid,
-          [row.handlerRegistration.firstName, row.handlerRegistration.lastName]
-            .filter(Boolean)
-            .join(' '),
-          row.handlerRegistration.phone,
-          row.handlerRegistration.tradeCategory,
-          row.handlerRegistration.businessName,
-          row.status,
-          formatDateTime(row.issuedAt),
-          formatDateTime(row.expiresAt),
-        ]),
+        rows.map((row) => {
+          const latestDelivery = row.deliveries[0];
+          return [
+            row.uid,
+            [row.handlerRegistration.firstName, row.handlerRegistration.lastName]
+              .filter(Boolean)
+              .join(' '),
+            row.handlerRegistration.phone,
+            row.handlerRegistration.tradeCategory,
+            row.handlerRegistration.businessName,
+            row.status,
+            formatDateTime(row.issuedAt),
+            formatDateTime(row.expiresAt),
+            latestDelivery?.channel ?? null,
+            latestDelivery?.deliveryStatus ?? null,
+            latestDelivery?.recipient ?? null,
+            formatDateTime(latestDelivery?.performedAt ?? null),
+          ];
+        }),
       );
     });
   }
@@ -242,18 +269,27 @@ export class ReportsService {
         where: buildCertificateWhere(filters),
         orderBy: { issuedAt: 'desc' },
         take: 5000,
-        include: { handlerRegistration: true },
+        include: {
+          handlerRegistration: true,
+          deliveries: { orderBy: { performedAt: 'desc' }, take: 1 },
+        },
       });
-      return toExcelHtml('Certificates', ['UID', 'Handler name', 'Phone', 'Trade', 'Business', 'Status', 'Issued', 'Expires'], rows.map((row) => [
-        row.uid,
-        [row.handlerRegistration.firstName, row.handlerRegistration.lastName].filter(Boolean).join(' '),
-        row.handlerRegistration.phone,
-        row.handlerRegistration.tradeCategory,
-        row.handlerRegistration.businessName,
-        row.status,
-        formatDateTime(row.issuedAt),
-        formatDateTime(row.expiresAt),
-      ]));
+      return toExcelHtml('Certificates', ['UID', 'Handler name', 'Phone', 'Trade', 'Business', 'Status', 'Issued', 'Expires', 'Last delivery', 'Recipient', 'Delivered at'], rows.map((row) => {
+        const latestDelivery = row.deliveries[0];
+        return [
+          row.uid,
+          [row.handlerRegistration.firstName, row.handlerRegistration.lastName].filter(Boolean).join(' '),
+          row.handlerRegistration.phone,
+          row.handlerRegistration.tradeCategory,
+          row.handlerRegistration.businessName,
+          row.status,
+          formatDateTime(row.issuedAt),
+          formatDateTime(row.expiresAt),
+          latestDelivery?.channel ?? null,
+          latestDelivery?.recipient ?? null,
+          formatDateTime(latestDelivery?.performedAt ?? null),
+        ];
+      }));
     });
   }
 
@@ -418,7 +454,10 @@ export class ReportsService {
         where: buildCertificateWhere(filters),
         orderBy: { issuedAt: 'desc' },
         take: 80,
-        include: { handlerRegistration: true },
+        include: {
+          handlerRegistration: true,
+          deliveries: { orderBy: { performedAt: 'desc' }, take: 1 },
+        },
       });
       return simplePdf('Darbel Certificates Export', [
         `Generated: ${new Date().toISOString()}`,
@@ -432,6 +471,7 @@ export class ReportsService {
             row.handlerRegistration.tradeCategory ?? 'No category',
             row.status,
             `expires ${formatDateTime(row.expiresAt)}`,
+            formatLatestDelivery(row.deliveries[0]),
           ].join(' | '),
         ),
       ]);
@@ -486,6 +526,16 @@ function buildCertificateWhere(filters: ReportFilters): Prisma.CertificateWhereI
     where.handlerRegistration = { tradeCategory: filters.tradeCategory };
   }
   if (filters.status) where.status = filters.status;
+  return where;
+}
+
+function buildDeliveryWhere(filters: ReportFilters): Prisma.CertificateDeliveryWhereInput {
+  const where: Prisma.CertificateDeliveryWhereInput = {};
+  const performedAt = buildDateRange(filters);
+  if (performedAt) where.performedAt = performedAt;
+  if (filters.tradeCategory) {
+    where.certificate = { handlerRegistration: { tradeCategory: filters.tradeCategory } };
+  }
   return where;
 }
 
@@ -574,6 +624,13 @@ function formatDate(value: Date | null): string | null {
 
 function formatDateTime(value: Date | null): string | null {
   return value ? value.toISOString() : null;
+}
+
+function formatLatestDelivery(
+  delivery: { channel: string; recipient: string | null; performedAt: Date } | undefined,
+): string {
+  if (!delivery) return 'not delivered';
+  return `last ${delivery.channel.toLowerCase()} ${formatDateTime(delivery.performedAt)}${delivery.recipient ? ` to ${delivery.recipient}` : ''}`;
 }
 
 function percent(numerator: number, denominator: number): number {

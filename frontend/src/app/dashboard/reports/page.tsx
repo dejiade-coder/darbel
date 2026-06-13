@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Download, FileText, PieChart, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Activity, BarChart3, Download, FileText, PieChart, Send, ShieldCheck, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
@@ -20,6 +20,10 @@ type Summary = {
   medicalRejected: number;
   validCertificates: number;
   expiredCertificates: number;
+  certificateDeliveries: number;
+  certificatePrints: number;
+  certificateEmails: number;
+  certificateWhatsApps: number;
   conversion: {
     paymentApprovalRate: number;
     medicalCompletionRate: number;
@@ -108,11 +112,12 @@ export default async function ReportsPage({
 
       {summary && (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <Metric icon={Activity} label="Total registrations" value={summary.registrations} detail={`${summary.submittedForReview} awaiting review`} />
             <Metric icon={TrendingUp} label="Payment approval" value={`${summary.conversion.paymentApprovalRate}%`} detail={`${summary.approvedPayments} paid and UID issued`} />
             <Metric icon={BarChart3} label="Medical completion" value={`${summary.conversion.medicalCompletionRate}%`} detail={`${summary.medicalApproved} approved, ${summary.medicalRejected} rejected`} />
             <Metric icon={ShieldCheck} label="Certification rate" value={`${summary.conversion.certificationRate}%`} detail={`${summary.validCertificates} valid certificates`} />
+            <Metric icon={Send} label="Certificate delivery" value={summary.certificateDeliveries} detail={`${summary.certificatePrints} print, ${summary.certificateEmails} email, ${summary.certificateWhatsApps} WhatsApp`} />
           </section>
 
           <section className="rounded-sm border border-ink-200 bg-white">

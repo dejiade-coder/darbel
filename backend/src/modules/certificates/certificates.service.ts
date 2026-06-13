@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceNotFoundException } from '../../common/errors/domain.exceptions';
+import type { RecordCertificateDeliveryDto } from './certificates.dto';
 
 export interface CertificatePublicDto {
   id: string;
@@ -14,6 +15,15 @@ export interface CertificatePublicDto {
   status: string;
   issuedAt: string;
   expiresAt: string;
+  latestDelivery: CertificateDeliveryPublicDto | null;
+}
+
+export interface CertificateDeliveryPublicDto {
+  id: string;
+  channel: string;
+  deliveryStatus: string;
+  recipient: string | null;
+  performedAt: string;
 }
 
 export interface VerificationDto {
@@ -42,7 +52,13 @@ export class CertificatesService {
       }
       const items = await tx.certificate.findMany({
         where,
-        include: { handlerRegistration: true },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 1,
+          },
+        },
         orderBy: { issuedAt: 'desc' },
         take: 100,
       });
@@ -73,6 +89,34 @@ export class CertificatesService {
       status,
     };
   }
+
+  async recordDelivery(
+    ctx: ActorContext,
+    certificateId: string,
+    dto: RecordCertificateDeliveryDto,
+  ): Promise<CertificateDeliveryPublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const certificate = await tx.certificate.findUnique({
+        where: { id: certificateId },
+        select: { id: true, tenantId: true },
+      });
+      if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+
+      const delivery = await tx.certificateDelivery.create({
+        data: {
+          tenantId: certificate.tenantId,
+          certificateId: certificate.id,
+          channel: dto.channel,
+          recipient: emptyToNull(dto.recipient),
+          deliveryUrl: emptyToNull(dto.deliveryUrl),
+          messagePreview: emptyToNull(dto.messagePreview),
+          performedBy: ctx.userId,
+        },
+      });
+
+      return toDeliveryPublic(delivery);
+    });
+  }
 }
 
 function toPublic(row: CertificateRow): CertificatePublicDto {
@@ -90,7 +134,23 @@ function toPublic(row: CertificateRow): CertificatePublicDto {
     status: row.status,
     issuedAt: row.issuedAt.toISOString(),
     expiresAt: row.expiresAt.toISOString(),
+    latestDelivery: row.deliveries[0] ? toDeliveryPublic(row.deliveries[0]) : null,
   };
+}
+
+function toDeliveryPublic(row: CertificateDeliveryRow): CertificateDeliveryPublicDto {
+  return {
+    id: row.id,
+    channel: row.channel,
+    deliveryStatus: row.deliveryStatus,
+    recipient: row.recipient,
+    performedAt: row.performedAt.toISOString(),
+  };
+}
+
+function emptyToNull(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? trimmed : null;
 }
 
 type CertificateRow = {
@@ -100,6 +160,7 @@ type CertificateRow = {
   status: string;
   issuedAt: Date;
   expiresAt: Date;
+  deliveries: CertificateDeliveryRow[];
   handlerRegistration: {
     firstName: string | null;
     lastName: string | null;
@@ -107,4 +168,12 @@ type CertificateRow = {
     phone: string | null;
     tradeCategory: string | null;
   };
+};
+
+type CertificateDeliveryRow = {
+  id: string;
+  channel: string;
+  deliveryStatus: string;
+  recipient: string | null;
+  performedAt: Date;
 };

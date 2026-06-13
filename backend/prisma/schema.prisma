@@ -65,6 +65,7 @@ model Tenant {
   handlerDocuments      HandlerDocument[]
   medicalScreenings     MedicalScreening[]
   certificates          Certificate[]
+  certificateDeliveries CertificateDelivery[]
 
   @@index([jurisdictionId])
   @@map("tenants")
@@ -167,6 +168,7 @@ model User {
   reviewedScreenings   MedicalScreening[] @relation("ScreeningReviewer")
   issuedCertificates   Certificate[]      @relation("CertificateIssuer")
   revokedCertificates  Certificate[]      @relation("CertificateRevoker")
+  certificateDeliveries CertificateDelivery[] @relation("CertificateDeliveryActor")
 
   @@unique([tenantId, email], map: "users_tenant_email_unique")
   @@index([tenantId])
@@ -436,10 +438,33 @@ model Certificate {
   medicalScreening    MedicalScreening?   @relation(fields: [medicalScreeningId], references: [id], onDelete: SetNull)
   issuer              User?               @relation("CertificateIssuer", fields: [issuedBy], references: [id])
   revoker             User?               @relation("CertificateRevoker", fields: [revokedBy], references: [id])
+  deliveries          CertificateDelivery[]
 
   @@unique([handlerRegistrationId, status])
   @@index([tenantId, status, issuedAt(sort: Desc)])
   @@map("certificates")
+}
+
+model CertificateDelivery {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  certificateId  String   @map("certificate_id") @db.Uuid
+  channel        String   @db.VarChar(20)
+  deliveryStatus String   @default("RECORDED") @map("delivery_status") @db.VarChar(30)
+  recipient      String?
+  deliveryUrl    String?  @map("delivery_url")
+  messagePreview String?  @map("message_preview")
+  performedBy    String?  @map("performed_by") @db.Uuid
+  performedAt    DateTime @default(now()) @map("performed_at") @db.Timestamptz()
+  metadata        Json?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("CertificateDeliveryActor", fields: [performedBy], references: [id])
+
+  @@index([tenantId, performedAt(sort: Desc)])
+  @@index([certificateId, performedAt(sort: Desc)])
+  @@map("certificate_deliveries")
 }
 
 // -----------------------------------------------------------------------------

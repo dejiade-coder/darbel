@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import { headers } from 'next/headers';
-import { ExternalLink, Mail, MessageCircle, Printer, Search, ShieldCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Send, Search, ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
+import { CertificateActions } from './certificate-actions';
 
 export const metadata = { title: 'Certificates' };
 
@@ -17,6 +16,12 @@ type Certificate = {
   status: string;
   issuedAt: string;
   expiresAt: string;
+  latestDelivery: {
+    channel: string;
+    deliveryStatus: string;
+    recipient: string | null;
+    performedAt: string;
+  } | null;
 };
 
 export default async function CertificatesPage({ searchParams }: { searchParams?: { q?: string } }) {
@@ -59,36 +64,17 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
                 <p className="font-medium text-ink-900">{item.handlerName}</p>
                 <p className="font-mono text-xs text-ink-500">{item.uid}</p>
                 <p className="text-xs text-ink-500">{item.tradeCategory || 'No category'}</p>
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500">
+                  <Send className="h-3.5 w-3.5" />
+                  {formatDelivery(item.latestDelivery)}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm text-ink-600">
                 <span className="inline-flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-success" />
                   {item.status} - expires {formatDate(item.expiresAt)}
                 </span>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/dashboard/certificates/${encodeURIComponent(item.uid)}/print`}>
-                    <Printer className="mr-2 h-3.5 w-3.5" />
-                    Print
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/verify/${encodeURIComponent(item.uid)}`} target="_blank">
-                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                    Verify
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <a href={buildMailLink(item, origin)}>
-                    <Mail className="mr-2 h-3.5 w-3.5" />
-                    {item.handlerEmail ? 'Email' : 'Email draft'}
-                  </a>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <a href={buildWhatsAppLink(item, origin)} target="_blank">
-                    <MessageCircle className="mr-2 h-3.5 w-3.5" />
-                    {item.handlerPhone ? 'WhatsApp' : 'Share'}
-                  </a>
-                </Button>
+                <CertificateActions item={item} origin={origin} />
               </div>
             </div>
           ))}
@@ -102,37 +88,12 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
 }
 
-function buildMailLink(item: Certificate, origin: string): string {
-  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
-  const subject = `Darbel certificate ${item.uid}`;
-  const body = [
-    `Hello ${item.handlerName},`,
-    '',
-    `Your Darbel compliance certificate is ready.`,
-    `Certificate UID: ${item.uid}`,
-    `Verify it here: ${verifyUrl}`,
-  ].join('\n');
-  const recipient = item.handlerEmail ? encodeURIComponent(item.handlerEmail) : '';
-  return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+function formatDelivery(delivery: Certificate['latestDelivery']): string {
+  if (!delivery) return 'No delivery recorded';
+  return `${formatChannel(delivery.channel)} recorded ${formatDate(delivery.performedAt)}`;
 }
 
-function buildWhatsAppLink(item: Certificate, origin: string): string {
-  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
-  const text = [
-    `Darbel compliance certificate for ${item.handlerName}`,
-    `UID: ${item.uid}`,
-    `Verify: ${verifyUrl}`,
-  ].join('\n');
-  const phone = normalizeWhatsAppPhone(item.handlerPhone);
-  const recipientPath = phone ? `/${phone}` : '';
-  return `https://wa.me${recipientPath}?text=${encodeURIComponent(text)}`;
-}
-
-function normalizeWhatsAppPhone(value: string | null): string {
-  if (!value) return '';
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('234')) return digits;
-  if (digits.startsWith('0') && digits.length === 11) return `234${digits.slice(1)}`;
-  return digits;
+function formatChannel(channel: string): string {
+  if (channel === 'WHATSAPP') return 'WhatsApp';
+  return channel.charAt(0) + channel.slice(1).toLowerCase();
 }
