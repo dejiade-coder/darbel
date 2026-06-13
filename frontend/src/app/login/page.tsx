@@ -8,10 +8,11 @@ export const metadata = { title: 'Sign in' };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { error?: string };
+  searchParams?: Promise<{ error?: string }>;
 }) {
   const actor = await readActorFromAccessToken();
   if (actor) redirect('/dashboard');
+  const params = await searchParams;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05383b] px-6 py-10">
@@ -24,7 +25,7 @@ export default async function LoginPage({
             User Login
           </h1>
         </div>
-        <LoginForm action={loginAction} initialError={searchParams?.error} />
+        <LoginForm action={loginAction} initialError={params?.error} />
         <p className="mt-8 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
           Authorised personnel only
         </p>

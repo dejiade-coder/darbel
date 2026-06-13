@@ -11,7 +11,12 @@ const LoginInput = z.object({
   password: z.string().min(1).max(256),
 });
 
-export async function loginAction(formData: FormData): Promise<{ error?: string } | void> {
+export type LoginFormState = { error?: string };
+
+export async function loginAction(
+  _prevState: LoginFormState | void,
+  formData: FormData,
+): Promise<LoginFormState | void> {
   const parsed = LoginInput.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),

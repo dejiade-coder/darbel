@@ -39,12 +39,13 @@ type CertificateTemplateLayout = {
   showVerification: boolean;
 };
 
-export default async function CertificatePrintPage({ params }: { params: { uid: string } }) {
-  const [result, template] = await Promise.all([fetchCertificate(params.uid), fetchTemplate()]);
+export default async function CertificatePrintPage({ params }: { params: Promise<{ uid: string }> }) {
+  const { uid } = await params;
+  const [result, template] = await Promise.all([fetchCertificate(uid), fetchTemplate()]);
   const hdrs = await headers();
   const host = hdrs.get('host') ?? 'localhost:3000';
   const protocol = host.startsWith('localhost') ? 'http' : 'https';
-  const verifyUrl = `${protocol}://${host}/verify/${encodeURIComponent(params.uid)}`;
+  const verifyUrl = `${protocol}://${host}/verify/${encodeURIComponent(uid)}`;
   const layout = normalizeLayout(template?.layout);
 
   return (

@@ -14,7 +14,8 @@ import type { RegistrationDocument } from './document-actions';
 
 export const metadata = { title: 'Edit registration' };
 
-export default async function EditRegistrationPage({ params }: { params: { id: string } }) {
+export default async function EditRegistrationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const actor = await readActorFromAccessToken();
 
   let profile: UserPublic | null = null;
@@ -25,7 +26,7 @@ export default async function EditRegistrationPage({ params }: { params: { id: s
   try {
     const [profileResult, registrationResult] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
-      apiFetch<EditableRegistration>(`/registrations/${params.id}`, { authenticated: true }),
+      apiFetch<EditableRegistration>(`/registrations/${id}`, { authenticated: true }),
     ]);
     profile = profileResult;
     registration = registrationResult;
@@ -39,7 +40,7 @@ export default async function EditRegistrationPage({ params }: { params: { id: s
   if (actor?.permissions.includes('payment.view')) {
     try {
       const paymentsResult = await apiFetch<{ items: RegistrationPayment[]; nextCursor: string | null }>(
-        `/payments?handlerRegistrationId=${params.id}`,
+        `/payments?handlerRegistrationId=${id}`,
         { authenticated: true },
       );
       payments = Array.isArray(paymentsResult?.items) ? paymentsResult.items : [];
@@ -51,7 +52,7 @@ export default async function EditRegistrationPage({ params }: { params: { id: s
   if (actor?.permissions.includes('handler.view')) {
     try {
       const documentsResult = await apiFetch<RegistrationDocument[]>(
-        `/registrations/${params.id}/documents`,
+        `/registrations/${id}/documents`,
         { authenticated: true },
       );
       documents = Array.isArray(documentsResult) ? documentsResult : [];

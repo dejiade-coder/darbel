@@ -1,31 +1,22 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
-import { useState, useTransition } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { LockKeyhole, UserRound } from 'lucide-react';
+import type { LoginFormState } from './actions';
 
 interface LoginFormProps {
-  action: (formData: FormData) => Promise<{ error?: string } | void>;
+  action: (prevState: LoginFormState | void, formData: FormData) => Promise<LoginFormState | void>;
   initialError?: string;
 }
 
 export function LoginForm({ action, initialError }: LoginFormProps) {
-  const [error, setError] = useState<string | undefined>(initialError);
-  const [isPending, startTransition] = useTransition();
-
-  async function onSubmit(formData: FormData) {
-    setError(undefined);
-    startTransition(async () => {
-      const result = await action(formData);
-      if (result?.error) setError(result.error);
-    });
-  }
+  const [state, formAction] = useFormState(action, { error: initialError });
 
   return (
-    <form action={onSubmit} className="mx-auto w-full max-w-[340px] space-y-7">
-      {error && (
+    <form action={formAction} className="mx-auto w-full max-w-[340px] space-y-7">
+      {state?.error && (
         <div className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-center text-sm font-medium text-white shadow-sm">
-          {error}
+          {state.error}
         </div>
       )}
 
@@ -63,21 +54,20 @@ export function LoginForm({ action, initialError }: LoginFormProps) {
         </span>
       </label>
 
-      <SubmitButton isPending={isPending} />
+      <SubmitButton />
     </form>
   );
 }
 
-function SubmitButton({ isPending }: { isPending: boolean }) {
+function SubmitButton() {
   const { pending } = useFormStatus();
-  const busy = pending || isPending;
   return (
     <button
       type="submit"
-      disabled={busy}
+      disabled={pending}
       className="mt-14 h-12 w-full rounded-full bg-white text-base font-black uppercase tracking-[0.04em] text-[#092530] shadow-[0_10px_26px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:bg-white/95 disabled:translate-y-0 disabled:opacity-70"
     >
-      {busy ? 'Verifying...' : 'Login'}
+      {pending ? 'Verifying...' : 'Login'}
     </button>
   );
 }

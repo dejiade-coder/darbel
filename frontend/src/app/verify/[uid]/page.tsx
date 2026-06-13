@@ -13,10 +13,11 @@ type Verification = {
   status: string;
 };
 
-export default async function VerifyPage({ params }: { params: { uid: string } }) {
+export default async function VerifyPage({ params }: { params: Promise<{ uid: string }> }) {
+  const { uid } = await params;
   let result: Verification | null = null;
   try {
-    const res = await fetch(`${API_BASE}/verify/${encodeURIComponent(params.uid)}`, { cache: 'no-store' });
+    const res = await fetch(`${API_BASE}/verify/${encodeURIComponent(uid)}`, { cache: 'no-store' });
     if (res.ok) result = (await res.json()) as Verification;
   } catch {
     result = null;
