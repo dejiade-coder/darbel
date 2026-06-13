@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { ChangePasswordCard } from './change-password-card';
 import { MfaCard } from './mfa-card';
 import { CertificateTemplateCard } from './certificate-template-card';
-import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction } from './actions';
+import { NotificationProvidersCard, type NotificationProviders } from './notification-providers-card';
+import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateNotificationProvidersAction } from './actions';
 import { Alert } from '@/components/ui/alert';
 
 export const metadata = { title: 'My account' };
@@ -41,16 +42,21 @@ export default async function SettingsPage() {
 
   let me: UserPublic | null = null;
   let certificateTemplate: CertificateTemplate = null;
+  let notificationProviders: NotificationProviders | null = null;
   let loadError: string | null = null;
   try {
-    const [profile, template] = await Promise.all([
+    const [profile, template, providers] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
       actor.permissions.includes('tenant.view')
         ? apiFetch<CertificateTemplate>('/tenant-settings/certificate-template', { authenticated: true })
         : Promise.resolve(null),
+      actor.permissions.includes('tenant.view')
+        ? apiFetch<NotificationProviders>('/tenant-settings/notification-providers', { authenticated: true })
+        : Promise.resolve(null),
     ]);
     me = profile;
     certificateTemplate = template;
+    notificationProviders = providers;
   } catch (e) {
     loadError = e instanceof ApiError ? e.payload.message : 'Could not load profile';
   }
@@ -105,6 +111,13 @@ export default async function SettingsPage() {
 
         {actor.permissions.includes('tenant.update_own') && (
           <CertificateTemplateCard initialTemplate={certificateTemplate} />
+        )}
+
+        {actor.permissions.includes('tenant.update_own') && notificationProviders && (
+          <NotificationProvidersCard
+            initialSettings={notificationProviders}
+            action={updateNotificationProvidersAction}
+          />
         )}
       </div>
     </>

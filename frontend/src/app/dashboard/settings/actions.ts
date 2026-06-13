@@ -114,3 +114,34 @@ export async function disableMfaAction(
   revalidatePath('/dashboard/settings');
   return { success: 'Multi-factor authentication is disabled.' };
 }
+
+export async function updateNotificationProvidersAction(
+  formData: FormData,
+): Promise<{ error?: string; success?: string } | void> {
+  const smtpPortRaw = String(formData.get('smtpPort') ?? '').trim();
+  try {
+    await apiFetch('/tenant-settings/notification-providers', {
+      method: 'PATCH',
+      authenticated: true,
+      body: {
+        emailEnabled: formData.get('emailEnabled') === 'on',
+        smtpHost: String(formData.get('smtpHost') ?? ''),
+        smtpPort: smtpPortRaw ? Number(smtpPortRaw) : null,
+        smtpSecure: formData.get('smtpSecure') === 'on',
+        smtpUsername: String(formData.get('smtpUsername') ?? ''),
+        smtpPassword: String(formData.get('smtpPassword') ?? ''),
+        emailFromName: String(formData.get('emailFromName') ?? ''),
+        emailFromAddress: String(formData.get('emailFromAddress') ?? ''),
+        whatsAppEnabled: formData.get('whatsAppEnabled') === 'on',
+        whatsAppPhoneNumberId: String(formData.get('whatsAppPhoneNumberId') ?? ''),
+        whatsAppBusinessAccountId: String(formData.get('whatsAppBusinessAccountId') ?? ''),
+        whatsAppAccessToken: String(formData.get('whatsAppAccessToken') ?? ''),
+        whatsAppDefaultCountryCode: String(formData.get('whatsAppDefaultCountryCode') ?? ''),
+      },
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.payload.message : 'Could not save notification providers.' };
+  }
+  revalidatePath('/dashboard/settings');
+  return { success: 'Notification provider settings saved.' };
+}

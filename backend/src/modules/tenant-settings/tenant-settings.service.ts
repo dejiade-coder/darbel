@@ -6,8 +6,10 @@ import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
+import type { UpdateNotificationProvidersDto } from './tenant-settings.dto';
 
 const TEMPLATE_KEY = 'certificate_template';
+const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
 const MAX_TEMPLATE_SIZE = 8 * 1024 * 1024;
 const ALLOWED_TEMPLATE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
 
@@ -48,9 +50,88 @@ export interface CertificateTemplateLayout {
   showVerification: boolean;
 }
 
+export interface NotificationProvidersDto {
+  emailEnabled: boolean;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUsername: string | null;
+  smtpPasswordConfigured: boolean;
+  emailFromName: string | null;
+  emailFromAddress: string | null;
+  whatsAppEnabled: boolean;
+  whatsAppPhoneNumberId: string | null;
+  whatsAppBusinessAccountId: string | null;
+  whatsAppAccessTokenConfigured: boolean;
+  whatsAppDefaultCountryCode: string;
+  updatedAt: string | null;
+}
+
+type StoredNotificationProviders = Omit<
+  NotificationProvidersDto,
+  'smtpPasswordConfigured' | 'whatsAppAccessTokenConfigured'
+> & {
+  smtpPassword?: string | null;
+  whatsAppAccessToken?: string | null;
+};
+
 @Injectable()
 export class TenantSettingsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getNotificationProviders(ctx: ActorContext): Promise<NotificationProvidersDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: NOTIFICATION_PROVIDERS_KEY } },
+      });
+      return toNotificationProvidersDto(normalizeNotificationProviders(setting?.settingValue));
+    });
+  }
+
+  async updateNotificationProviders(
+    ctx: ActorContext,
+    dto: UpdateNotificationProvidersDto,
+  ): Promise<NotificationProvidersDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: NOTIFICATION_PROVIDERS_KEY } },
+      });
+      const current = normalizeNotificationProviders(setting?.settingValue);
+      const next: StoredNotificationProviders = {
+        ...current,
+        emailEnabled: dto.emailEnabled ?? false,
+        smtpHost: emptyToNull(dto.smtpHost),
+        smtpPort: dto.smtpPort ?? null,
+        smtpSecure: dto.smtpSecure ?? false,
+        smtpUsername: emptyToNull(dto.smtpUsername),
+        smtpPassword: emptyToNull(dto.smtpPassword) ?? current.smtpPassword ?? null,
+        emailFromName: emptyToNull(dto.emailFromName),
+        emailFromAddress: emptyToNull(dto.emailFromAddress),
+        whatsAppEnabled: dto.whatsAppEnabled ?? false,
+        whatsAppPhoneNumberId: emptyToNull(dto.whatsAppPhoneNumberId),
+        whatsAppBusinessAccountId: emptyToNull(dto.whatsAppBusinessAccountId),
+        whatsAppAccessToken: emptyToNull(dto.whatsAppAccessToken) ?? current.whatsAppAccessToken ?? null,
+        whatsAppDefaultCountryCode: emptyToNull(dto.whatsAppDefaultCountryCode) ?? '234',
+        updatedAt: new Date().toISOString(),
+      };
+
+      await tx.tenantSetting.upsert({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: NOTIFICATION_PROVIDERS_KEY } },
+        create: {
+          tenantId: ctx.tenantId,
+          settingKey: NOTIFICATION_PROVIDERS_KEY,
+          settingValue: next as unknown as Prisma.InputJsonValue,
+          updatedBy: ctx.userId,
+        },
+        update: {
+          settingValue: next as unknown as Prisma.InputJsonValue,
+          updatedBy: ctx.userId,
+        },
+      });
+
+      return toNotificationProvidersDto(next);
+    });
+  }
 
   async getCertificateTemplate(ctx: ActorContext): Promise<CertificateTemplateDto | null> {
     return this.prisma.runWithContext(ctx, async (tx) => {
@@ -224,4 +305,48 @@ function buildStorageKey(tenantId: string, originalName?: string): string {
   const rawExt = originalName ? extname(originalName).toLowerCase() : '';
   const ext = ['.jpg', '.jpeg', '.png', '.pdf'].includes(rawExt) ? rawExt : '.bin';
   return join('certificate-templates', tenantId, `${randomUUID()}${ext}`);
+}
+
+function normalizeNotificationProviders(value: unknown): StoredNotificationProviders {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<StoredNotificationProviders>;
+  return {
+    emailEnabled: raw.emailEnabled ?? false,
+    smtpHost: raw.smtpHost ?? null,
+    smtpPort: raw.smtpPort ?? null,
+    smtpSecure: raw.smtpSecure ?? false,
+    smtpUsername: raw.smtpUsername ?? null,
+    smtpPassword: raw.smtpPassword ?? null,
+    emailFromName: raw.emailFromName ?? null,
+    emailFromAddress: raw.emailFromAddress ?? null,
+    whatsAppEnabled: raw.whatsAppEnabled ?? false,
+    whatsAppPhoneNumberId: raw.whatsAppPhoneNumberId ?? null,
+    whatsAppBusinessAccountId: raw.whatsAppBusinessAccountId ?? null,
+    whatsAppAccessToken: raw.whatsAppAccessToken ?? null,
+    whatsAppDefaultCountryCode: raw.whatsAppDefaultCountryCode ?? '234',
+    updatedAt: raw.updatedAt ?? null,
+  };
+}
+
+function toNotificationProvidersDto(value: StoredNotificationProviders): NotificationProvidersDto {
+  return {
+    emailEnabled: value.emailEnabled,
+    smtpHost: value.smtpHost,
+    smtpPort: value.smtpPort,
+    smtpSecure: value.smtpSecure,
+    smtpUsername: value.smtpUsername,
+    smtpPasswordConfigured: Boolean(value.smtpPassword),
+    emailFromName: value.emailFromName,
+    emailFromAddress: value.emailFromAddress,
+    whatsAppEnabled: value.whatsAppEnabled,
+    whatsAppPhoneNumberId: value.whatsAppPhoneNumberId,
+    whatsAppBusinessAccountId: value.whatsAppBusinessAccountId,
+    whatsAppAccessTokenConfigured: Boolean(value.whatsAppAccessToken),
+    whatsAppDefaultCountryCode: value.whatsAppDefaultCountryCode,
+    updatedAt: value.updatedAt,
+  };
+}
+
+function emptyToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? trimmed : null;
 }
