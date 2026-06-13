@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
-import { ResourceNotFoundException } from '../../common/errors/domain.exceptions';
-import type { RecordCertificateDeliveryDto } from './certificates.dto';
+import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
+import type { RecordCertificateDeliveryDto, RevokeCertificateDto } from './certificates.dto';
 
 export interface CertificatePublicDto {
   id: string;
@@ -15,6 +15,8 @@ export interface CertificatePublicDto {
   status: string;
   issuedAt: string;
   expiresAt: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
   latestDelivery: CertificateDeliveryPublicDto | null;
 }
 
@@ -117,6 +119,48 @@ export class CertificatesService {
       return toDeliveryPublic(delivery);
     });
   }
+
+  async revoke(
+    ctx: ActorContext,
+    certificateId: string,
+    dto: RevokeCertificateDto,
+  ): Promise<CertificatePublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const certificate = await tx.certificate.findUnique({
+        where: { id: certificateId },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+      if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+      if (certificate.status === 'REVOKED') {
+        throw new ResourceConflictException('This certificate has already been revoked');
+      }
+
+      const revoked = await tx.certificate.update({
+        where: { id: certificateId },
+        data: {
+          status: 'REVOKED',
+          revokedBy: ctx.userId,
+          revokedAt: new Date(),
+          revokeReason: dto.reason,
+        },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      return toPublic(revoked);
+    });
+  }
 }
 
 function toPublic(row: CertificateRow): CertificatePublicDto {
@@ -134,6 +178,8 @@ function toPublic(row: CertificateRow): CertificatePublicDto {
     status: row.status,
     issuedAt: row.issuedAt.toISOString(),
     expiresAt: row.expiresAt.toISOString(),
+    revokedAt: row.revokedAt?.toISOString() ?? null,
+    revokeReason: row.revokeReason,
     latestDelivery: row.deliveries[0] ? toDeliveryPublic(row.deliveries[0]) : null,
   };
 }
@@ -160,6 +206,8 @@ type CertificateRow = {
   status: string;
   issuedAt: Date;
   expiresAt: Date;
+  revokedAt: Date | null;
+  revokeReason: string | null;
   deliveries: CertificateDeliveryRow[];
   handlerRegistration: {
     firstName: string | null;

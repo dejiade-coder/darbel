@@ -8,3 +8,9 @@ export const RecordCertificateDeliveryDto = z.object({
 });
 
 export type RecordCertificateDeliveryDto = z.infer<typeof RecordCertificateDeliveryDto>;
+
+export const RevokeCertificateDto = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export type RevokeCertificateDto = z.infer<typeof RevokeCertificateDto>;

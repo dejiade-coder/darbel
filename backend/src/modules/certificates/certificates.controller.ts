@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { CurrentUser, Permissions, Public, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CertificatesService } from './certificates.service';
-import { RecordCertificateDeliveryDto } from './certificates.dto';
+import { RecordCertificateDeliveryDto, RevokeCertificateDto } from './certificates.dto';
 
 @Controller()
 export class CertificatesController {
@@ -37,6 +37,18 @@ export class CertificatesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.certificates.recordDelivery(toContext(actor, req), id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('certificates/:id/revoke')
+  @Permissions('certificate.revoke')
+  revoke(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RevokeCertificateDto)) dto: RevokeCertificateDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.certificates.revoke(toContext(actor, req), id, dto);
   }
 }
 

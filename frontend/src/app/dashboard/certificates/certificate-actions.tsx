@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import { ExternalLink, Mail, MessageCircle, Printer } from 'lucide-react';
+import { ExternalLink, Mail, MessageCircle, Printer, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Certificate = {
@@ -11,11 +11,20 @@ type Certificate = {
   handlerName: string;
   handlerEmail: string | null;
   handlerPhone: string | null;
+  status: string;
 };
 
 type DeliveryChannel = 'PRINT' | 'EMAIL' | 'WHATSAPP';
 
-export function CertificateActions({ item, origin }: { item: Certificate; origin: string }) {
+export function CertificateActions({
+  item,
+  origin,
+  canRevoke,
+}: {
+  item: Certificate;
+  origin: string;
+  canRevoke: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const printUrl = `/dashboard/certificates/${encodeURIComponent(item.uid)}/print`;
@@ -44,13 +53,34 @@ export function CertificateActions({ item, origin }: { item: Certificate; origin
     });
   }
 
+  function revokeCertificate() {
+    const reason = window.prompt(`Why is certificate ${item.uid} being revoked?`);
+    if (reason === null) return;
+    const trimmed = reason.trim();
+    if (trimmed.length < 3) {
+      alert('Enter a revocation reason of at least 3 characters.');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await revokeCertificateRequest(item.id, trimmed);
+        router.refresh();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to revoke certificate.');
+      }
+    });
+  }
+
+  const isRevoked = item.status === 'REVOKED';
+
   return (
     <>
       <Button
         type="button"
         variant="outline"
         size="sm"
-        disabled={isPending}
+        disabled={isPending || isRevoked}
         onClick={() => recordAndOpen('PRINT', printUrl, 'same-tab')}
       >
         <Printer className="mr-2 h-3.5 w-3.5" />
@@ -66,7 +96,7 @@ export function CertificateActions({ item, origin }: { item: Certificate; origin
         type="button"
         variant="outline"
         size="sm"
-        disabled={isPending}
+        disabled={isPending || isRevoked}
         onClick={() => recordAndOpen('EMAIL', mailUrl, 'location')}
       >
         <Mail className="mr-2 h-3.5 w-3.5" />
@@ -76,12 +106,24 @@ export function CertificateActions({ item, origin }: { item: Certificate; origin
         type="button"
         variant="outline"
         size="sm"
-        disabled={isPending}
+        disabled={isPending || isRevoked}
         onClick={() => recordAndOpen('WHATSAPP', whatsAppUrl, 'new-tab')}
       >
         <MessageCircle className="mr-2 h-3.5 w-3.5" />
         {item.handlerPhone ? 'WhatsApp' : 'Share'}
       </Button>
+      {canRevoke && !isRevoked && (
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          disabled={isPending}
+          onClick={revokeCertificate}
+        >
+          <ShieldX className="mr-2 h-3.5 w-3.5" />
+          Revoke
+        </Button>
+      )}
     </>
   );
 }
@@ -102,6 +144,19 @@ async function recordDelivery(item: Certificate, channel: DeliveryChannel, deliv
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to record certificate delivery.');
+  }
+}
+
+async function revokeCertificateRequest(certificateId: string, reason: string): Promise<void> {
+  const res = await fetch('/dashboard/certificates/revoke', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ certificateId, reason }),
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message ?? 'Failed to revoke certificate.');
   }
 }
 
