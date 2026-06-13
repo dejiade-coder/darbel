@@ -11,6 +11,8 @@ type Certificate = {
   id: string;
   uid: string;
   handlerName: string;
+  handlerEmail: string | null;
+  handlerPhone: string | null;
   tradeCategory: string | null;
   status: string;
   issuedAt: string;
@@ -78,13 +80,13 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
                 <Button asChild variant="outline" size="sm">
                   <a href={buildMailLink(item, origin)}>
                     <Mail className="mr-2 h-3.5 w-3.5" />
-                    Email
+                    {item.handlerEmail ? 'Email' : 'Email draft'}
                   </a>
                 </Button>
                 <Button asChild variant="outline" size="sm">
                   <a href={buildWhatsAppLink(item, origin)} target="_blank">
                     <MessageCircle className="mr-2 h-3.5 w-3.5" />
-                    WhatsApp
+                    {item.handlerPhone ? 'WhatsApp' : 'Share'}
                   </a>
                 </Button>
               </div>
@@ -110,7 +112,8 @@ function buildMailLink(item: Certificate, origin: string): string {
     `Certificate UID: ${item.uid}`,
     `Verify it here: ${verifyUrl}`,
   ].join('\n');
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const recipient = item.handlerEmail ? encodeURIComponent(item.handlerEmail) : '';
+  return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function buildWhatsAppLink(item: Certificate, origin: string): string {
@@ -120,5 +123,16 @@ function buildWhatsAppLink(item: Certificate, origin: string): string {
     `UID: ${item.uid}`,
     `Verify: ${verifyUrl}`,
   ].join('\n');
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const phone = normalizeWhatsAppPhone(item.handlerPhone);
+  const recipientPath = phone ? `/${phone}` : '';
+  return `https://wa.me${recipientPath}?text=${encodeURIComponent(text)}`;
+}
+
+function normalizeWhatsAppPhone(value: string | null): string {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('234')) return digits;
+  if (digits.startsWith('0') && digits.length === 11) return `234${digits.slice(1)}`;
+  return digits;
 }

@@ -8,6 +8,8 @@ export interface CertificatePublicDto {
   uid: string;
   handlerRegistrationId: string;
   handlerName: string;
+  handlerEmail: string | null;
+  handlerPhone: string | null;
   tradeCategory: string | null;
   status: string;
   issuedAt: string;
@@ -82,6 +84,8 @@ function toPublic(row: CertificateRow): CertificatePublicDto {
       [row.handlerRegistration.firstName, row.handlerRegistration.lastName]
         .filter(Boolean)
         .join(' ') || 'Unnamed handler',
+    handlerEmail: row.handlerRegistration.email,
+    handlerPhone: row.handlerRegistration.phone,
     tradeCategory: row.handlerRegistration.tradeCategory,
     status: row.status,
     issuedAt: row.issuedAt.toISOString(),
@@ -99,6 +103,8 @@ type CertificateRow = {
   handlerRegistration: {
     firstName: string | null;
     lastName: string | null;
+    email: string | null;
+    phone: string | null;
     tradeCategory: string | null;
   };
 };
