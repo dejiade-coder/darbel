@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   ClipboardList,
   ClipboardPlus,
+  ListChecks,
   FileSearch,
   FlaskConical,
   LayoutGrid,
@@ -33,6 +34,7 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/medical', label: 'Medical', icon: FlaskConical, requireAny: ['medical.view_results'] },
   { href: '/dashboard/certificates', label: 'Certificates', icon: BadgeCheck, requireAny: ['certificate.view'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, requireAny: ['report.view'] },
+  { href: '/dashboard/readiness', label: 'Readiness', icon: ListChecks, requireAny: ['tenant.view', 'report.view'] },
   { href: '/dashboard/users', label: 'Users', icon: Users, requireAny: ['user.view'] },
   { href: '/dashboard/roles', label: 'Roles & Permissions', icon: UserCog, requireAny: ['role.view'] },
   { href: '/dashboard/audit', label: 'Audit log', icon: FileSearch, requireAny: ['audit.view'] },
