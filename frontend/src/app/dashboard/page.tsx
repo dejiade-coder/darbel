@@ -9,6 +9,7 @@ import {
   FileSearch,
   FlaskConical,
   Printer,
+  Send,
   ShieldCheck,
   Users,
   UserCog,
@@ -37,6 +38,7 @@ type Summary = {
   medicalRejected: number;
   validCertificates: number;
   expiredCertificates: number;
+  certificateDeliveries: number;
 };
 
 const emptySummary: Summary = {
@@ -52,6 +54,7 @@ const emptySummary: Summary = {
   medicalRejected: 0,
   validCertificates: 0,
   expiredCertificates: 0,
+  certificateDeliveries: 0,
 };
 
 export default async function DashboardHome() {
@@ -126,6 +129,37 @@ export default async function DashboardHome() {
         <Metric label="Medical" value={summary.medicalScreenings} detail={`${summary.resultsEntered} results entered`} />
         <Metric label="Approved" value={summary.medicalApproved} detail={`${summary.medicalRejected} rejected`} />
         <Metric label="Certificates" value={summary.validCertificates} detail={`${summary.expiredCertificates} expired`} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-4">
+        <AttentionCard
+          href="/dashboard/registrations?status=SUBMITTED_FOR_REVIEW"
+          icon={BadgeCheck}
+          label="Applicant review"
+          value={summary.submittedForReview}
+          detail="Submitted records waiting for payment decision."
+        />
+        <AttentionCard
+          href="/dashboard/medical"
+          icon={FlaskConical}
+          label="Medical queue"
+          value={summary.readyForScreening + summary.samplesCollected + summary.resultsEntered}
+          detail="Handlers waiting for sample collection, result entry, or approval."
+        />
+        <AttentionCard
+          href="/dashboard/certificates"
+          icon={Send}
+          label="Certificate delivery"
+          value={Math.max(summary.validCertificates - summary.certificateDeliveries, 0)}
+          detail="Issued certificates without a recorded delivery action."
+        />
+        <AttentionCard
+          href="/dashboard/readiness"
+          icon={ShieldCheck}
+          label="Launch readiness"
+          value={summary.registrations > 0 && summary.validCertificates > 0 ? 0 : 1}
+          detail="Open readiness checks before production onboarding."
+        />
       </section>
 
       <section className="rounded-sm border border-ink-200 bg-white">
@@ -315,6 +349,41 @@ function ActionCard({
         Continue
         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </span>
+    </Link>
+  );
+}
+
+function AttentionCard({
+  href,
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  const clear = value <= 0;
+  return (
+    <Link
+      href={href}
+      className={`rounded-sm border p-4 transition-colors ${
+        clear
+          ? 'border-success/20 bg-success/5 hover:border-success/40'
+          : 'border-warning/30 bg-warning/5 hover:border-warning/50'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Icon className={clear ? 'h-4 w-4 text-success' : 'h-4 w-4 text-warning'} />
+          <p className="text-sm font-semibold text-ink-900">{label}</p>
+        </div>
+        <Badge variant={clear ? 'success' : 'warning'}>{clear ? 'Clear' : value}</Badge>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-ink-600">{detail}</p>
     </Link>
   );
 }
