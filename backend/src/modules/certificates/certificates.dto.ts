@@ -14,3 +14,9 @@ export const RevokeCertificateDto = z.object({
 });
 
 export type RevokeCertificateDto = z.infer<typeof RevokeCertificateDto>;
+
+export const RenewCertificateDto = z.object({
+  validityDays: z.coerce.number().int().min(1).max(3650).default(365),
+});
+
+export type RenewCertificateDto = z.infer<typeof RenewCertificateDto>;

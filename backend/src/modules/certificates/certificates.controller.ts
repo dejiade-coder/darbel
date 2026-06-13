@@ -4,7 +4,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { CurrentUser, Permissions, Public, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CertificatesService } from './certificates.service';
-import { RecordCertificateDeliveryDto, RevokeCertificateDto } from './certificates.dto';
+import { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
 
 @Controller()
 export class CertificatesController {
@@ -49,6 +49,18 @@ export class CertificatesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.certificates.revoke(toContext(actor, req), id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('certificates/:id/renew')
+  @Permissions('certificate.issue')
+  renew(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RenewCertificateDto)) dto: RenewCertificateDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.certificates.renew(toContext(actor, req), id, dto);
   }
 }
 

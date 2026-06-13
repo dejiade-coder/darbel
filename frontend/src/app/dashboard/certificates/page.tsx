@@ -34,6 +34,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
   const hdrs = await headers();
   const actor = await readActorFromAccessToken();
   const canRevoke = actor?.permissions.includes('certificate.revoke') ?? false;
+  const canRenew = actor?.permissions.includes('certificate.issue') ?? false;
   const host = hdrs.get('host') ?? 'localhost:3000';
   const protocol = host.startsWith('localhost') ? 'http' : 'https';
   const origin = `${protocol}://${host}`;
@@ -84,7 +85,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
                   <ShieldCheck className={item.status === 'REVOKED' ? 'h-4 w-4 text-danger' : 'h-4 w-4 text-success'} />
                   {item.status} - expires {formatDate(item.expiresAt)}
                 </span>
-                <CertificateActions item={item} origin={origin} canRevoke={canRevoke} />
+                <CertificateActions item={item} origin={origin} canRevoke={canRevoke} canRenew={canRenew} />
               </div>
             </div>
           ))}

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
-import type { RecordCertificateDeliveryDto, RevokeCertificateDto } from './certificates.dto';
+import type { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
 
 export interface CertificatePublicDto {
   id: string;
@@ -161,6 +161,46 @@ export class CertificatesService {
       return toPublic(revoked);
     });
   }
+
+  async renew(
+    ctx: ActorContext,
+    certificateId: string,
+    dto: RenewCertificateDto,
+  ): Promise<CertificatePublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const certificate = await tx.certificate.findUnique({
+        where: { id: certificateId },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+      if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+      if (certificate.status === 'REVOKED') {
+        throw new ResourceConflictException('Revoked certificates cannot be renewed');
+      }
+
+      const renewed = await tx.certificate.update({
+        where: { id: certificateId },
+        data: {
+          status: 'VALID',
+          expiresAt: addDays(new Date(), dto.validityDays),
+        },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      return toPublic(renewed);
+    });
+  }
 }
 
 function toPublic(row: CertificateRow): CertificatePublicDto {
@@ -197,6 +237,12 @@ function toDeliveryPublic(row: CertificateDeliveryRow): CertificateDeliveryPubli
 function emptyToNull(value: string | undefined): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed ? trimmed : null;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 type CertificateRow = {

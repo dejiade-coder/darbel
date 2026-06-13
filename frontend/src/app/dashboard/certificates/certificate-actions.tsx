@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import { ExternalLink, Mail, MessageCircle, Printer, ShieldX } from 'lucide-react';
+import { ExternalLink, Mail, MessageCircle, Printer, RotateCcw, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Certificate = {
@@ -20,10 +20,12 @@ export function CertificateActions({
   item,
   origin,
   canRevoke,
+  canRenew,
 }: {
   item: Certificate;
   origin: string;
   canRevoke: boolean;
+  canRenew: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -72,6 +74,25 @@ export function CertificateActions({
     });
   }
 
+  function renewCertificate() {
+    const raw = window.prompt(`Renew certificate ${item.uid} for how many days?`, '365');
+    if (raw === null) return;
+    const validityDays = Number(raw);
+    if (!Number.isInteger(validityDays) || validityDays < 1 || validityDays > 3650) {
+      alert('Enter a whole number between 1 and 3650 days.');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await renewCertificateRequest(item.id, validityDays);
+        router.refresh();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to renew certificate.');
+      }
+    });
+  }
+
   const isRevoked = item.status === 'REVOKED';
 
   return (
@@ -112,6 +133,18 @@ export function CertificateActions({
         <MessageCircle className="mr-2 h-3.5 w-3.5" />
         {item.handlerPhone ? 'WhatsApp' : 'Share'}
       </Button>
+      {canRenew && !isRevoked && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isPending}
+          onClick={renewCertificate}
+        >
+          <RotateCcw className="mr-2 h-3.5 w-3.5" />
+          Renew
+        </Button>
+      )}
       {canRevoke && !isRevoked && (
         <Button
           type="button"
@@ -157,6 +190,19 @@ async function revokeCertificateRequest(certificateId: string, reason: string): 
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to revoke certificate.');
+  }
+}
+
+async function renewCertificateRequest(certificateId: string, validityDays: number): Promise<void> {
+  const res = await fetch('/dashboard/certificates/renew', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ certificateId, validityDays }),
+  });
+
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message ?? 'Failed to renew certificate.');
   }
 }
 
