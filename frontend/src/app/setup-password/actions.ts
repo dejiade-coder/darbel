@@ -12,7 +12,7 @@ const Input = z.object({
 export async function setupPasswordAction(
   formData: FormData,
 ): Promise<{ error?: string } | void> {
-  const challenge = getChallengeCookie();
+  const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'password_change_required') {
     redirect('/login');
   }
@@ -30,7 +30,7 @@ export async function setupPasswordAction(
         newPassword: parsed.data.newPassword,
       },
     });
-    clearChallengeCookie();
+    await clearChallengeCookie();
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.code === 'VALIDATION_PASSWORD_POLICY') {
@@ -40,7 +40,7 @@ export async function setupPasswordAction(
         return { error: 'You cannot reuse a recent password. Choose a different one.' };
       }
       if (e.code === 'AUTH_INVALID_CREDENTIALS') {
-        clearChallengeCookie();
+        await clearChallengeCookie();
         redirect('/login?error=Your session expired. Please sign in again.');
       }
       return { error: e.payload.message };

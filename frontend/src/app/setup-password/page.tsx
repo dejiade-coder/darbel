@@ -6,12 +6,12 @@ import { setupPasswordAction } from './actions';
 
 export const metadata = { title: 'Set a new password' };
 
-export default function SetupPasswordPage({
+export default async function SetupPasswordPage({
   searchParams,
 }: {
   searchParams?: { error?: string };
 }) {
-  const challenge = getChallengeCookie();
+  const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'password_change_required') {
     redirect('/login');
   }

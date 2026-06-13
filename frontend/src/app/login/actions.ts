@@ -45,7 +45,7 @@ export async function loginAction(formData: FormData): Promise<{ error?: string 
   }
 
   if (result.status === 'authenticated') {
-    setAuthCookies({
+    await setAuthCookies({
       accessToken: result.tokens.accessToken,
       refreshToken: result.tokens.refreshToken,
       accessExpiresIn: result.tokens.expiresIn,
@@ -53,11 +53,11 @@ export async function loginAction(formData: FormData): Promise<{ error?: string 
     redirect('/dashboard');
   }
   if (result.status === 'mfa_required') {
-    setChallengeCookie(result.challengeToken, 'mfa_required');
+    await setChallengeCookie(result.challengeToken, 'mfa_required');
     redirect('/mfa-challenge');
   }
   if (result.status === 'password_change_required') {
-    setChallengeCookie(result.challengeToken, 'password_change_required');
+    await setChallengeCookie(result.challengeToken, 'password_change_required');
     redirect('/setup-password');
   }
 }

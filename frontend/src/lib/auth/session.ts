@@ -31,12 +31,12 @@ const COOKIE_OPTIONS = {
 
 export type ChallengeKind = 'mfa_required' | 'password_change_required';
 
-export function setAuthCookies(args: {
+export async function setAuthCookies(args: {
   accessToken: string;
   refreshToken: string;
   accessExpiresIn: number;
-}): void {
-  const store = cookies();
+}): Promise<void> {
+  const store = await cookies();
   store.set(ACCESS_TOKEN_COOKIE, args.accessToken, {
     ...COOKIE_OPTIONS,
     maxAge: args.accessExpiresIn,
@@ -49,16 +49,16 @@ export function setAuthCookies(args: {
   store.set(CHALLENGE_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });
 }
 
-export function setChallengeCookie(token: string, kind: ChallengeKind): void {
-  const store = cookies();
+export async function setChallengeCookie(token: string, kind: ChallengeKind): Promise<void> {
+  const store = await cookies();
   store.set(CHALLENGE_COOKIE, JSON.stringify({ token, kind }), {
     ...COOKIE_OPTIONS,
     maxAge: 300, // 5 minutes
   });
 }
 
-export function getChallengeCookie(): { token: string; kind: ChallengeKind } | null {
-  const raw = cookies().get(CHALLENGE_COOKIE)?.value;
+export async function getChallengeCookie(): Promise<{ token: string; kind: ChallengeKind } | null> {
+  const raw = (await cookies()).get(CHALLENGE_COOKIE)?.value;
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as { token: string; kind: ChallengeKind };
@@ -69,20 +69,20 @@ export function getChallengeCookie(): { token: string; kind: ChallengeKind } | n
   }
 }
 
-export function clearChallengeCookie(): void {
-  cookies().set(CHALLENGE_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });
+export async function clearChallengeCookie(): Promise<void> {
+  (await cookies()).set(CHALLENGE_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });
 }
 
-export function getAccessToken(): string | null {
-  return cookies().get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+export async function getAccessToken(): Promise<string | null> {
+  return (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value ?? null;
 }
 
-export function getRefreshToken(): string | null {
-  return cookies().get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+export async function getRefreshToken(): Promise<string | null> {
+  return (await cookies()).get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 }
 
-export function clearAllAuthCookies(): void {
-  const store = cookies();
+export async function clearAllAuthCookies(): Promise<void> {
+  const store = await cookies();
   store.set(ACCESS_TOKEN_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });
   store.set(REFRESH_TOKEN_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });
   store.set(CHALLENGE_COOKIE, '', { ...COOKIE_OPTIONS, maxAge: 0 });

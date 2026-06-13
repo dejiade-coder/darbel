@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api/server-client';
 import { clearAllAuthCookies, getRefreshToken } from '@/lib/auth/session';
 
 export async function logoutAction(_formData: FormData): Promise<void> {
-  const rt = getRefreshToken();
+  const rt = await getRefreshToken();
   if (rt) {
     // Best-effort: revoke server-side. Even if it fails, clear local cookies.
     try {
@@ -17,6 +17,6 @@ export async function logoutAction(_formData: FormData): Promise<void> {
       // Swallow — local clear is still authoritative
     }
   }
-  clearAllAuthCookies();
+  await clearAllAuthCookies();
   redirect('/login');
 }

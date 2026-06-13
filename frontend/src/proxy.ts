@@ -1,21 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Edge middleware: light gatekeeper for protected routes.
+ * Light gatekeeper for protected routes.
  *
  * It only checks for the presence of an access-token cookie. It does NOT
- * verify the token (the backend does that on every API call). The point is
- * to redirect anonymous users away from /dashboard quickly, without a
- * round-trip to the API just to render a redirect.
- *
- * The /dashboard layout does the authoritative check (calls /users/me) and
- * will redirect to /login on any 401 — so this middleware can be permissive.
+ * verify the token; the backend does that on every API call. The dashboard
+ * layout still performs the authoritative profile check and redirects on 401.
  */
-export function middleware(req: NextRequest): NextResponse {
+export function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
   const hasAccess = req.cookies.has('darbel_at');
 
-  // Protect /dashboard/*
   if (pathname.startsWith('/dashboard') && !hasAccess) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
@@ -23,7 +18,6 @@ export function middleware(req: NextRequest): NextResponse {
     return NextResponse.redirect(url);
   }
 
-  // Bounce already-authenticated users away from auth pages
   if ((pathname === '/login' || pathname === '/') && hasAccess) {
     const url = req.nextUrl.clone();
     url.pathname = '/dashboard';

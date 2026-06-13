@@ -20,8 +20,8 @@ export interface ActorClaims {
  * to render. Trusting a decoded JWT for *rendering* is fine; trusting it for
  * *authorization* would not be. The backend re-checks everything.
  */
-export function readActorFromAccessToken(): ActorClaims | null {
-  const token = getAccessToken();
+export async function readActorFromAccessToken(): Promise<ActorClaims | null> {
+  const token = await getAccessToken();
   if (!token) return null;
   try {
     const payload = decodeJwt(token);

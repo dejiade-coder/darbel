@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { ArrowRight, CreditCard, Filter, ReceiptText, Search, WalletCards } from 'lucide-react';
+import { ArrowRight, CheckCircle2, CreditCard, Filter, ReceiptText, Search, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
+import { readActorFromAccessToken } from '@/lib/auth/claims';
+import { approvePaymentFromListAction } from './actions';
 
 export const metadata = { title: 'Payments' };
 
@@ -19,11 +20,15 @@ type Payment = {
   receiptNumber: string | null;
   status: 'RECORDED' | 'APPROVED' | 'VOIDED' | 'REFUNDED';
   paidAt: string;
+  approvedAt: string | null;
+  registrationUid: string | null;
+  registrationHasApprovedPayment: boolean;
 };
 
 type PaymentsSearchParams = {
   q?: string;
   status?: Payment['status'];
+  paymentError?: string;
 };
 
 const statusStyles: Record<string, string> = {
@@ -38,10 +43,13 @@ export default async function PaymentsPage({
 }: {
   searchParams?: PaymentsSearchParams;
 }) {
+  const actor = await readActorFromAccessToken();
+  const canApprovePayment = actor?.permissions.includes('payment.approve') ?? false;
   let items: Payment[] = [];
   let loadError = '';
   const q = searchParams?.q?.trim() ?? '';
   const statusFilter = searchParams?.status;
+  const paymentError = searchParams?.paymentError?.trim() ?? '';
   const apiParams = new URLSearchParams();
   if (q) apiParams.set('q', q);
   if (statusFilter) apiParams.set('status', statusFilter);
@@ -83,6 +91,11 @@ export default async function PaymentsPage({
       </section>
 
       <section className="rounded-sm border border-ink-200 bg-white">
+        {paymentError && (
+          <div className="border-b border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+            {paymentError}
+          </div>
+        )}
         <form
           action="/dashboard/payments"
           className="flex flex-col gap-3 border-b border-ink-100 p-4 lg:flex-row lg:items-center lg:justify-between"
@@ -126,7 +139,7 @@ export default async function PaymentsPage({
                 <th className="px-5 py-3 font-medium">Method</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Paid</th>
-                <th className="px-5 py-3 text-right font-medium">Registration</th>
+                <th className="px-5 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -150,7 +163,7 @@ export default async function PaymentsPage({
                       <p className="font-medium text-ink-900">{payment.handlerName}</p>
                       <p className="mt-1 text-xs text-ink-500">{payment.tradeCategory || 'No category'}</p>
                       <p className="mt-1 font-mono text-xs text-ink-500">
-                        {payment.receiptNumber || payment.reference || payment.id}
+                        {payment.registrationUid ?? payment.receiptNumber ?? payment.reference ?? payment.id}
                       </p>
                     </td>
                     <td className="px-5 py-4 font-medium text-ink-900">
@@ -163,12 +176,26 @@ export default async function PaymentsPage({
                       </span>
                     </td>
                     <td className="px-5 py-4 text-ink-600">{formatDate(payment.paidAt)}</td>
-                    <td className="px-5 py-4 text-right">
-                      <Button asChild variant="ghost" size="icon" aria-label={`Open ${payment.handlerName}`}>
-                        <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-2">
+                        {canApprovePayment &&
+                          payment.status === 'RECORDED' &&
+                          !payment.registrationHasApprovedPayment && (
+                          <form action={approvePaymentFromListAction}>
+                            <input type="hidden" name="paymentId" value={payment.id} />
+                            <input type="hidden" name="registrationId" value={payment.handlerRegistrationId} />
+                            <Button type="submit" variant="outline" size="sm">
+                              <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                              Approve
+                            </Button>
+                          </form>
+                        )}
+                        <Button asChild variant="ghost" size="icon" aria-label={`Open ${payment.handlerName}`}>
+                          <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );

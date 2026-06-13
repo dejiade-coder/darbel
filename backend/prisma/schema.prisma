@@ -62,6 +62,9 @@ model Tenant {
   tradeCategoryFees TradeCategoryFee[]
   handlerRegistrations HandlerRegistration[]
   payments             Payment[]
+  handlerDocuments      HandlerDocument[]
+  medicalScreenings     MedicalScreening[]
+  certificates          Certificate[]
 
   @@index([jurisdictionId])
   @@map("tenants")
@@ -158,6 +161,12 @@ model User {
   passwordHistory PasswordHistory[]
   handlerRegistrations HandlerRegistration[] @relation("HandlerRegistrationRegistrar")
   recordedPayments     Payment[]             @relation("PaymentRecorder")
+  uploadedDocuments    HandlerDocument[]
+  collectedScreenings  MedicalScreening[] @relation("ScreeningCollector")
+  enteredScreenings    MedicalScreening[] @relation("ScreeningEntry")
+  reviewedScreenings   MedicalScreening[] @relation("ScreeningReviewer")
+  issuedCertificates   Certificate[]      @relation("CertificateIssuer")
+  revokedCertificates  Certificate[]      @relation("CertificateRevoker")
 
   @@unique([tenantId, email], map: "users_tenant_email_unique")
   @@index([tenantId])
@@ -326,6 +335,9 @@ model HandlerRegistration {
   businessName          String?   @map("business_name") @db.VarChar(200)
   businessAddress       String?   @map("business_address")
   passportPhotoReceived Boolean   @default(false) @map("passport_photo_received")
+  uid                   String?   @unique @db.VarChar(12)
+  uidIssuedAt           DateTime? @map("uid_issued_at") @db.Timestamptz()
+  uidIssuedBy           String?   @map("uid_issued_by") @db.Uuid
   status                String    @default("DRAFT") @db.VarChar(40)
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
@@ -336,11 +348,98 @@ model HandlerRegistration {
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   registrar User   @relation("HandlerRegistrationRegistrar", fields: [registrarUserId], references: [id])
   payments  Payment[]
+  documents HandlerDocument[]
+  medicalScreening MedicalScreening?
+  certificates Certificate[]
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([registrarUserId, createdAt(sort: Desc)])
   @@index([tenantId, status])
   @@map("handler_registrations")
+}
+
+model HandlerDocument {
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  handlerRegistrationId String   @map("handler_registration_id") @db.Uuid
+  documentType          String   @map("document_type") @db.VarChar(40)
+  storageKey            String   @map("storage_key")
+  originalFilename      String?  @map("original_filename")
+  mimeType              String   @map("mime_type") @db.VarChar(80)
+  sizeBytes             BigInt   @map("size_bytes")
+  sha256Hash            String   @map("sha256_hash") @db.Char(64)
+  uploadedBy            String   @map("uploaded_by") @db.Uuid
+  uploadedAt            DateTime @default(now()) @map("uploaded_at") @db.Timestamptz()
+  notes                 String?
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  handlerRegistration HandlerRegistration @relation(fields: [handlerRegistrationId], references: [id], onDelete: Cascade)
+  uploader            User                @relation(fields: [uploadedBy], references: [id])
+
+  @@index([handlerRegistrationId, uploadedAt(sort: Desc)])
+  @@index([tenantId, uploadedAt(sort: Desc)])
+  @@map("handler_documents")
+}
+
+model MedicalScreening {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  handlerRegistrationId String    @unique @map("handler_registration_id") @db.Uuid
+  status                String    @default("SAMPLE_COLLECTED") @db.VarChar(40)
+  sampleCollectedBy     String?   @map("sample_collected_by") @db.Uuid
+  sampleCollectedAt     DateTime? @map("sample_collected_at") @db.Timestamptz()
+  labResultSummary      String?   @map("lab_result_summary")
+  mantouxResult         String?   @map("mantoux_result") @db.VarChar(30)
+  mantouxIndurationMm   Int?      @map("mantoux_induration_mm")
+  hepatitisBResult      String?   @map("hepatitis_b_result") @db.VarChar(30)
+  hivResult             String?   @map("hiv_result") @db.VarChar(30)
+  widalResult           String?   @map("widal_result") @db.VarChar(30)
+  medicalOfficerNotes   String?   @map("medical_officer_notes")
+  fitnessStatus         String?   @map("fitness_status") @db.VarChar(30)
+  enteredBy             String?   @map("entered_by") @db.Uuid
+  enteredAt             DateTime? @map("entered_at") @db.Timestamptz()
+  reviewedBy            String?   @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamptz()
+  reviewNotes           String?   @map("review_notes")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  handlerRegistration HandlerRegistration @relation(fields: [handlerRegistrationId], references: [id], onDelete: Restrict)
+  collector           User?               @relation("ScreeningCollector", fields: [sampleCollectedBy], references: [id])
+  entrant             User?               @relation("ScreeningEntry", fields: [enteredBy], references: [id])
+  reviewer            User?               @relation("ScreeningReviewer", fields: [reviewedBy], references: [id])
+  certificates        Certificate[]
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@map("medical_screenings")
+}
+
+model Certificate {
+  id                    String    @id @default(uuid()) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  handlerRegistrationId String    @map("handler_registration_id") @db.Uuid
+  medicalScreeningId    String?   @map("medical_screening_id") @db.Uuid
+  uid                   String    @unique @db.VarChar(12)
+  status                String    @default("VALID") @db.VarChar(30)
+  issuedBy              String?   @map("issued_by") @db.Uuid
+  issuedAt              DateTime  @default(now()) @map("issued_at") @db.Timestamptz()
+  expiresAt             DateTime  @map("expires_at") @db.Timestamptz()
+  revokedBy             String?   @map("revoked_by") @db.Uuid
+  revokedAt             DateTime? @map("revoked_at") @db.Timestamptz()
+  revokeReason          String?   @map("revoke_reason")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  handlerRegistration HandlerRegistration @relation(fields: [handlerRegistrationId], references: [id], onDelete: Restrict)
+  medicalScreening    MedicalScreening?   @relation(fields: [medicalScreeningId], references: [id], onDelete: SetNull)
+  issuer              User?               @relation("CertificateIssuer", fields: [issuedBy], references: [id])
+  revoker             User?               @relation("CertificateRevoker", fields: [revokedBy], references: [id])
+
+  @@unique([handlerRegistrationId, status])
+  @@index([tenantId, status, issuedAt(sort: Desc)])
+  @@map("certificates")
 }
 
 // -----------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import type { UserPublic } from '@/lib/api/types';
 export const metadata = { title: 'New registration' };
 
 export default async function NewRegistrationPage() {
-  const actor = readActorFromAccessToken();
+  const actor = await readActorFromAccessToken();
 
   let profile: UserPublic | null = null;
   try {

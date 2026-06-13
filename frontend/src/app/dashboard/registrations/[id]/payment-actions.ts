@@ -15,6 +15,9 @@ export type PaymentResult = {
   receiptNumber: string | null;
   status: string;
   paidAt: string;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  registrationUid?: string | null;
 };
 
 export async function recordPaymentAction(payload: {
@@ -42,5 +45,42 @@ export async function recordPaymentAction(payload: {
 
   revalidatePath(`/dashboard/registrations/${payload.handlerRegistrationId}`);
   revalidatePath('/dashboard/payments');
+  return result;
+}
+
+export async function approvePaymentAction(payload: {
+  paymentId: string;
+  handlerRegistrationId: string;
+}): Promise<PaymentResult> {
+  const result = await apiFetch<PaymentResult>(`/payments/${payload.paymentId}/approve`, {
+    method: 'PATCH',
+    authenticated: true,
+  });
+
+  if (!result?.id) {
+    throw new Error('The backend did not return an approved payment. Please try again.');
+  }
+
+  revalidatePath(`/dashboard/registrations/${payload.handlerRegistrationId}`);
+  revalidatePath('/dashboard/payments');
+  return result;
+}
+
+export async function registrarApprovePaymentAction(payload: {
+  paymentId: string;
+  handlerRegistrationId: string;
+}): Promise<PaymentResult> {
+  const result = await apiFetch<PaymentResult>(`/payments/${payload.paymentId}/registrar-approve`, {
+    method: 'PATCH',
+    authenticated: true,
+  });
+
+  if (!result?.id) {
+    throw new Error('The backend did not return an approved payment. Please try again.');
+  }
+
+  revalidatePath(`/dashboard/registrations/${payload.handlerRegistrationId}`);
+  revalidatePath('/dashboard/payments');
+  revalidatePath('/dashboard/medical');
   return result;
 }

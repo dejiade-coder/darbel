@@ -6,19 +6,51 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ChangePasswordCard } from './change-password-card';
 import { MfaCard } from './mfa-card';
+import { CertificateTemplateCard } from './certificate-template-card';
 import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction } from './actions';
 import { Alert } from '@/components/ui/alert';
 
 export const metadata = { title: 'My account' };
 
+type CertificateTemplate = {
+  originalFilename: string | null;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  approvedAt: string;
+  isApproved: boolean;
+  layout: {
+    nameLeftPercent: number;
+    nameTopPercent: number;
+    nameWidthPercent: number;
+    detailLeftPercent: number;
+    detailTopPercent: number;
+    detailWidthPercent: number;
+    detailBottomPercent: number;
+    detailInsetPercent: number;
+    nameScale: number;
+    detailScale: number;
+    showVerification: boolean;
+  };
+  fileUrl: string;
+} | null;
+
 export default async function SettingsPage() {
-  const actor = readActorFromAccessToken();
+  const actor = await readActorFromAccessToken();
   if (!actor) return null;
 
   let me: UserPublic | null = null;
+  let certificateTemplate: CertificateTemplate = null;
   let loadError: string | null = null;
   try {
-    me = await apiFetch<UserPublic>('/users/me', { authenticated: true });
+    const [profile, template] = await Promise.all([
+      apiFetch<UserPublic>('/users/me', { authenticated: true }),
+      actor.permissions.includes('tenant.view')
+        ? apiFetch<CertificateTemplate>('/tenant-settings/certificate-template', { authenticated: true })
+        : Promise.resolve(null),
+    ]);
+    me = profile;
+    certificateTemplate = template;
   } catch (e) {
     loadError = e instanceof ApiError ? e.payload.message : 'Could not load profile';
   }
@@ -41,12 +73,12 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
-            <CardDescription>Read-only on Phase 1. Editing arrives in Phase 2.</CardDescription>
+            <CardDescription>Signed-in operator identity and assigned roles.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Row label="Full name" value={me?.fullName ?? '—'} />
+            <Row label="Full name" value={me?.fullName ?? '-'} />
             <Row label="Email" value={actor.email} mono />
-            <Row label="Phone" value={me?.phone ?? '—'} mono />
+            <Row label="Phone" value={me?.phone ?? '-'} mono />
             <Row
               label="Roles"
               value={
@@ -70,6 +102,10 @@ export default async function SettingsPage() {
           confirmAction={confirmMfaEnrollAction}
           disableAction={disableMfaAction}
         />
+
+        {actor.permissions.includes('tenant.update_own') && (
+          <CertificateTemplateCard initialTemplate={certificateTemplate} />
+        )}
       </div>
     </>
   );

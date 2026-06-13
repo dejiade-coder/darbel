@@ -15,7 +15,7 @@ export default async function UsersPage({
 }: {
   searchParams?: { q?: string; cursor?: string };
 }) {
-  const actor = readActorFromAccessToken();
+  const actor = await readActorFromAccessToken();
   if (!actor) return null;
 
   const params = new URLSearchParams();

@@ -14,6 +14,11 @@ import { HealthModule } from './modules/health/health.module';
 import { TradeCategoriesModule } from './modules/trade-categories/trade-categories.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { MedicalModule } from './modules/medical/medical.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { TenantSettingsModule } from './modules/tenant-settings/tenant-settings.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestIdMiddleware } from './common/interceptors/request-id.middleware';
 
@@ -71,6 +76,11 @@ import { RequestIdMiddleware } from './common/interceptors/request-id.middleware
     TradeCategoriesModule,
     RegistrationsModule,
     PaymentsModule,
+    DocumentsModule,
+    MedicalModule,
+    CertificatesModule,
+    ReportsModule,
+    TenantSettingsModule,
   ],
   providers: [
     {

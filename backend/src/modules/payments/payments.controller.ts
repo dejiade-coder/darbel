@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -44,6 +47,26 @@ export class PaymentsController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.payments.record(toContext(actor, req), body);
+  }
+
+  @Patch(':id/approve')
+  @Permissions('payment.approve')
+  approve(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.payments.approve(toContext(actor, req), id);
+  }
+
+  @Patch(':id/registrar-approve')
+  @Permissions('payment.record')
+  registrarApprove(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.payments.approve(toContext(actor, req), id);
   }
 }
 

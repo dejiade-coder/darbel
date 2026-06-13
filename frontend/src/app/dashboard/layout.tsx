@@ -6,7 +6,7 @@ import { apiFetch, ApiError } from '@/lib/api/server-client';
 import type { UserPublic } from '@/lib/api/types';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const actor = readActorFromAccessToken();
+  const actor = await readActorFromAccessToken();
   if (!actor) redirect('/login');
 
   // Refresh profile from server so we always have the latest fullName/permissions

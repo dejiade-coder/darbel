@@ -27,6 +27,8 @@ export interface RegistrationPublicDto {
   businessName: string | null;
   businessAddress: string | null;
   passportPhotoReceived: boolean;
+  uid: string | null;
+  uidIssuedAt: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -49,6 +51,7 @@ export class RegistrationsService {
           { firstName: { contains: query.q, mode: 'insensitive' } },
           { lastName: { contains: query.q, mode: 'insensitive' } },
           { phone: { contains: query.q, mode: 'insensitive' } },
+          { uid: { contains: query.q.toUpperCase(), mode: 'insensitive' } },
           { tradeCategory: { contains: query.q, mode: 'insensitive' } },
           { businessName: { contains: query.q, mode: 'insensitive' } },
         ];
@@ -186,6 +189,8 @@ function toPublic(row: HandlerRegistrationRow): RegistrationPublicDto {
     businessName: row.businessName,
     businessAddress: row.businessAddress,
     passportPhotoReceived: row.passportPhotoReceived,
+    uid: row.uid,
+    uidIssuedAt: row.uidIssuedAt?.toISOString() ?? null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -210,6 +215,8 @@ type HandlerRegistrationRow = {
   businessName: string | null;
   businessAddress: string | null;
   passportPhotoReceived: boolean;
+  uid: string | null;
+  uidIssuedAt: Date | null;
   status: string;
   createdAt: Date;
   updatedAt: Date;

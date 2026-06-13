@@ -49,14 +49,14 @@ interface RequestOptions {
  *   GlobalExceptionFilter.
  */
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const init = buildInit(opts);
+  const init = await buildInit(opts);
   const url = `${API_BASE}${path}`;
 
   let res = await fetch(url, init);
   if (res.status === 401 && opts.authenticated && !opts.noRefresh) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      res = await fetch(url, buildInit(opts));
+      res = await fetch(url, await buildInit(opts));
     }
   }
 
@@ -81,14 +81,14 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
   return data as T;
 }
 
-function buildInit(opts: RequestOptions): RequestInit {
+async function buildInit(opts: RequestOptions): Promise<RequestInit> {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     accept: 'application/json',
   };
   if (opts.requestId) headers['x-request-id'] = opts.requestId;
   if (opts.authenticated) {
-    const at = getAccessToken();
+    const at = await getAccessToken();
     if (at) headers.authorization = `Bearer ${at}`;
   }
   const init: RequestInit = {
@@ -104,7 +104,7 @@ function buildInit(opts: RequestOptions): RequestInit {
 
 /** Try once to use the refresh token to mint a new access token. */
 async function tryRefresh(): Promise<boolean> {
-  const rt = getRefreshToken();
+  const rt = await getRefreshToken();
   if (!rt) return false;
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
@@ -114,7 +114,7 @@ async function tryRefresh(): Promise<boolean> {
       cache: 'no-store',
     });
     if (!res.ok) {
-      clearAllAuthCookies();
+      await tryClearAllAuthCookies();
       return false;
     }
     const data = (await res.json()) as {
@@ -122,19 +122,32 @@ async function tryRefresh(): Promise<boolean> {
       refreshToken: string;
       expiresIn: number;
     };
-    setAuthCookies({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      accessExpiresIn: data.expiresIn,
-    });
+    try {
+      await setAuthCookies({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        accessExpiresIn: data.expiresIn,
+      });
+    } catch {
+      return false;
+    }
     return true;
   } catch {
-    clearAllAuthCookies();
+    await tryClearAllAuthCookies();
     return false;
   }
 }
 
+async function tryClearAllAuthCookies(): Promise<void> {
+  try {
+    await clearAllAuthCookies();
+  } catch {
+    // Server Components cannot mutate cookies during render. In that case the
+    // caller receives the 401 and redirects to login without crashing the page.
+  }
+}
+
 /** Type-safe accessor for the inbound request id from a route handler. */
-export function getInboundRequestId(): string | undefined {
-  return cookies().get('x-request-id')?.value;
+export async function getInboundRequestId(): Promise<string | undefined> {
+  return (await cookies()).get('x-request-id')?.value;
 }

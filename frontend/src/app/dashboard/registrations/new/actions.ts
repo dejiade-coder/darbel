@@ -2,7 +2,11 @@
 
 import { apiFetch } from '@/lib/api/server-client';
 
-export type RegistrationStatus = 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'CANCELLED';
+export type RegistrationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED_FOR_REVIEW'
+  | 'READY_FOR_SCREENING'
+  | 'CANCELLED';
 export type EditableRegistrationStatus = Exclude<RegistrationStatus, 'CANCELLED'>;
 
 export type RegistrationPayload = {

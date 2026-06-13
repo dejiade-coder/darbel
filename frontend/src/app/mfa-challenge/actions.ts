@@ -15,7 +15,7 @@ const Input = z.object({
 });
 
 export async function verifyMfaAction(formData: FormData): Promise<{ error?: string } | void> {
-  const challenge = getChallengeCookie();
+  const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'mfa_required') {
     redirect('/login');
   }
@@ -33,19 +33,19 @@ export async function verifyMfaAction(formData: FormData): Promise<{ error?: str
         code: parsed.data.code,
       },
     });
-    setAuthCookies({
+    await setAuthCookies({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       accessExpiresIn: tokens.expiresIn,
     });
-    clearChallengeCookie();
+    await clearChallengeCookie();
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.code === 'AUTH_INVALID_MFA') {
         return { error: 'That code is not valid. Try again with the latest code from your app.' };
       }
       if (e.code === 'AUTH_INVALID_CREDENTIALS') {
-        clearChallengeCookie();
+        await clearChallengeCookie();
         redirect('/login?error=Session expired. Please sign in again.');
       }
       return { error: e.payload.message };

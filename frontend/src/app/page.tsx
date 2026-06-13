@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
 
-export default function RootPage() {
-  const actor = readActorFromAccessToken();
+export default async function RootPage() {
+  const actor = await readActorFromAccessToken();
   if (actor) {
     redirect('/dashboard');
   }

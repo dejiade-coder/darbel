@@ -11,3 +11,4 @@ coverage/
 .cache/
 .tsbuildinfo
 prisma/.prisma/
+storage/

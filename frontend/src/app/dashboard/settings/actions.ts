@@ -41,7 +41,7 @@ export async function changePasswordAction(
     return { error: 'Could not change password.' };
   }
   // Backend revoked all sessions; clear cookies and force fresh login.
-  clearAllAuthCookies();
+  await clearAllAuthCookies();
   redirect('/login?error=Password updated. Please sign in again with your new password.');
 }
 

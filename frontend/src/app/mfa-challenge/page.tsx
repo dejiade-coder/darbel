@@ -6,12 +6,12 @@ import { verifyMfaAction } from './actions';
 
 export const metadata = { title: 'Verify identity' };
 
-export default function MfaChallengePage({
+export default async function MfaChallengePage({
   searchParams,
 }: {
   searchParams?: { error?: string };
 }) {
-  const challenge = getChallengeCookie();
+  const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'mfa_required') {
     redirect('/login');
   }

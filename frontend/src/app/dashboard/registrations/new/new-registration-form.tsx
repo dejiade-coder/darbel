@@ -2,10 +2,22 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Ban, CalendarDays, CheckCircle2, FileUp, Save, Send, UserRound } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  ArrowLeft,
+  Ban,
+  Briefcase,
+  CalendarDays,
+  CheckCircle2,
+  FileUp,
+  Mail,
+  MapPin,
+  Phone,
+  Save,
+  Send,
+  Store,
+  UserRound,
+  UserPlus,
+} from 'lucide-react';
 import {
   cancelRegistrationAction,
   saveRegistrationAction,
@@ -75,6 +87,8 @@ export type EditableRegistration = {
   businessName: string | null;
   businessAddress: string | null;
   passportPhotoReceived: boolean;
+  uid: string | null;
+  uidIssuedAt: string | null;
   status: RegistrationStatus;
 };
 
@@ -92,10 +106,18 @@ export function NewRegistrationForm({
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+
   const isEditing = Boolean(registration);
   const isBusy = isSaving || isSubmitting || isCancelling;
   const isCancelled = status === 'CANCELLED';
   const canCancel = Boolean(registrationId) && status === 'DRAFT';
+  const fullName = useMemo(
+    () => [form.firstName, form.lastName].filter(Boolean).join(' ') || 'New handler',
+    [form.firstName, form.lastName],
+  );
+  const requiredFields = [form.firstName, form.lastName, form.phone, form.registrationDate, form.tradeCategory, form.address];
+  const complete = requiredFields.filter((value) => String(value).trim()).length;
+  const completion = Math.round((complete / requiredFields.length) * 100);
 
   useEffect(() => {
     if (registration) {
@@ -104,22 +126,19 @@ export function NewRegistrationForm({
       setStatus(registration.status);
       return;
     }
-
     const raw = window.localStorage.getItem(DRAFT_KEY);
     if (!raw) {
-      setForm((current) => ({
-        ...current,
-        registrationDate: today(),
-      }));
+      setForm((current) => ({ ...current, registrationDate: today() }));
       return;
     }
     try {
-      setForm({
-        ...emptyForm,
-        registrationDate: today(),
-        ...JSON.parse(raw),
-      });
-      const parsed = JSON.parse(raw) as { registrationId?: string; status?: string };
+      const parsed = JSON.parse(raw) as Partial<FormState> & { registrationId?: string; status?: string };
+      if (parsed.status && parsed.status !== 'DRAFT') {
+        window.localStorage.removeItem(DRAFT_KEY);
+        setForm((current) => ({ ...current, registrationDate: today() }));
+        return;
+      }
+      setForm({ ...emptyForm, registrationDate: today(), ...parsed });
       setRegistrationId(parsed.registrationId);
       if (isRegistrationStatus(parsed.status)) setStatus(parsed.status);
       setNotice({ type: 'success', message: 'Draft restored from this browser.' });
@@ -127,11 +146,6 @@ export function NewRegistrationForm({
       window.localStorage.removeItem(DRAFT_KEY);
     }
   }, [registration]);
-
-  const fullName = useMemo(
-    () => [form.firstName, form.lastName].filter(Boolean).join(' ') || 'Not entered',
-    [form.firstName, form.lastName],
-  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -145,16 +159,10 @@ export function NewRegistrationForm({
       const savedId = saved.id || registrationId;
       setRegistrationId(savedId);
       setStatus(saved.status);
-      window.localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ ...form, registrationId: savedId, status: saved.status }),
-      );
-      setNotice({ type: 'success', message: 'Draft saved to the backend database.' });
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, registrationId: savedId, status: saved.status }));
+      setNotice({ type: 'success', message: 'Draft saved.' });
     } catch (error) {
-      setNotice({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save draft.',
-      });
+      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Failed to save draft.' });
     } finally {
       setIsSaving(false);
     }
@@ -171,10 +179,7 @@ export function NewRegistrationForm({
     ].filter(([, value]) => !String(value).trim());
 
     if (missing.length > 0) {
-      setNotice({
-        type: 'error',
-        message: `Complete these fields before submitting: ${missing.map(([label]) => label).join(', ')}.`,
-      });
+      setNotice({ type: 'error', message: `Complete: ${missing.map(([label]) => label).join(', ')}.` });
       return;
     }
 
@@ -182,31 +187,20 @@ export function NewRegistrationForm({
     try {
       const saved = await saveRegistrationAction(toPayload('SUBMITTED_FOR_REVIEW'), registrationId);
       const savedId = saved.id || registrationId;
+      if (!savedId) throw new Error('Registration saved without an ID.');
       setRegistrationId(savedId);
       setStatus(saved.status);
-      window.localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ ...form, registrationId: savedId, status: saved.status }),
-      );
-      setNotice({
-        type: 'success',
-        message: 'Registration submitted for review and saved to the backend database.',
-      });
+      window.localStorage.removeItem(DRAFT_KEY);
+      window.location.href = `/dashboard/registrations/${savedId}#payment`;
     } catch (error) {
-      setNotice({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to submit registration.',
-      });
+      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Failed to submit registration.' });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   async function cancelDraft() {
-    if (!registrationId) return;
-    const confirmed = window.confirm('Cancel this draft registration? You can still see it in the registrations list.');
-    if (!confirmed) return;
-
+    if (!registrationId || !window.confirm('Cancel this draft registration?')) return;
     setIsCancelling(true);
     try {
       const cancelled = await cancelRegistrationAction(registrationId);
@@ -214,10 +208,7 @@ export function NewRegistrationForm({
       window.localStorage.removeItem(DRAFT_KEY);
       setNotice({ type: 'success', message: 'Draft registration cancelled.' });
     } catch (error) {
-      setNotice({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to cancel draft.',
-      });
+      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Failed to cancel draft.' });
     } finally {
       setIsCancelling(false);
     }
@@ -240,272 +231,176 @@ export function NewRegistrationForm({
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-ink-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
-            <Link href="/dashboard/registrations">
+    <div className="rounded-[8px] border border-ink-200 bg-white p-5 shadow-sm md:p-7">
+      <div>
+        <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <Link href="/dashboard/registrations" className="inline-flex items-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-500 hover:text-[#075b50]">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Registrations
             </Link>
-          </Button>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Intake record</p>
-          <h1 className="mt-1 font-display text-4xl font-medium text-ink-900">
-            {isEditing ? 'Edit registration' : 'New registration'}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink-600">
-            Capture a food handler record for review before payment and medical screening.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canCancel && (
-            <Button type="button" variant="destructive" onClick={cancelDraft} disabled={isBusy}>
-              <Ban className="mr-2 h-4 w-4" />
-              {isCancelling ? 'Cancelling...' : 'Cancel draft'}
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={saveDraft} disabled={isBusy || isCancelled}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Saving...' : 'Save draft'}
-          </Button>
-          <Button type="button" onClick={submitForReview} disabled={isBusy || isCancelled}>
-            <Send className="mr-2 h-4 w-4" />
-            {isSubmitting ? 'Submitting...' : 'Submit for review'}
-          </Button>
-        </div>
-      </header>
-
-      {notice && (
-        <div
-          className={`rounded-sm border p-4 text-sm ${
-            notice.type === 'success'
-              ? 'border-success/25 bg-success/5 text-success'
-              : 'border-danger/25 bg-danger/5 text-danger'
-          }`}
-          role="status"
-        >
-          {notice.message}
-        </div>
-      )}
-
-      <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]" onSubmit={(event) => event.preventDefault()}>
-        <div className="space-y-6">
-          <Section
-            icon={CalendarDays}
-            title="Registrar details"
-            description="Captured automatically from the active logged-in user."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <ReadOnlyField label="Registrar name" value={registrar.name || 'Current user'} />
-              <ReadOnlyField label="Registrar email" value={registrar.email || 'Not available'} />
-              <ReadOnlyField label="Registrar phone" value={registrar.phone || 'Not provided'} />
-              <ReadOnlyField label="User status" value={registrar.isActive ? 'Active' : 'Inactive'} />
-              <Field label="Registration date" id="registrationDate" type="date" value={form.registrationDate} onChange={(value) => update('registrationDate', value)} />
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
+              {isEditing ? 'Update handler' : 'Applicant intake'}
+            </p>
+            <h1 className="mt-2 font-display text-4xl font-medium text-ink-900">
+              Registration
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-600">
+              Capture the applicant once, then continue to payment in the same workflow.
+            </p>
+          </div>
+          <div className="min-w-64 rounded-[8px] border border-ink-200 bg-ink-50 p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink-600">Completion</span>
+              <span className="font-semibold text-ink-900">{completion}%</span>
             </div>
-          </Section>
-
-          <Section
-            icon={UserRound}
-            title="Personal details"
-            description="Basic identity details used for the handler registry."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="First name" id="firstName" value={form.firstName} onChange={(value) => update('firstName', value)} placeholder="Amina" />
-              <Field label="Last name" id="lastName" value={form.lastName} onChange={(value) => update('lastName', value)} placeholder="Yusuf" />
-              <Field label="Phone number" id="phone" value={form.phone} onChange={(value) => update('phone', value)} placeholder="+234 803 000 0000" />
-              <Field label="Email address" id="email" type="email" value={form.email} onChange={(value) => update('email', value)} placeholder="handler@example.com" />
-              <SelectField label="Gender" id="gender" value={form.gender} options={['Female', 'Male', 'Prefer not to say']} onChange={(value) => update('gender', value)} />
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-200">
+              <div className="h-full rounded-full bg-[#0f766e]" style={{ width: `${completion}%` }} />
             </div>
-          </Section>
+            <p className="mt-3 text-xs text-ink-500">{complete} of {requiredFields.length} required fields complete</p>
+          </div>
+        </div>
 
-          <Section
-            icon={CalendarDays}
-            title="Trade and location"
-            description="Registration scope for jurisdiction, fee, and later medical routing."
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <SelectField label="Trade category" id="tradeCategory" value={form.tradeCategory} options={tradeCategories} onChange={(value) => update('tradeCategory', value)} />
-              <Field label="Business name (optional)" id="businessName" value={form.businessName} onChange={(value) => update('businessName', value)} placeholder="Amina Catering Services" />
-              <div className="md:col-span-2">
-                <Label htmlFor="address">Business address</Label>
-                <textarea
-                  id="address"
-                  rows={3}
-                  value={form.address}
-                  onChange={(event) => update('address', event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1"
-                  placeholder="Shop number, street, market, area, city"
-                />
+        {notice && (
+          <div className={`mb-6 rounded-[8px] px-4 py-3 text-sm font-medium ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+            {notice.message}
+          </div>
+        )}
+
+        <form className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_310px]" onSubmit={(event) => event.preventDefault()}>
+          <div className="space-y-8">
+            <Panel title="Applicant details">
+              <div className="grid gap-4 md:grid-cols-2">
+                <PillField icon={UserRound} placeholder="First name" value={form.firstName} onChange={(value) => update('firstName', value)} />
+                <PillField placeholder="Last name" value={form.lastName} onChange={(value) => update('lastName', value)} />
+                <PillField icon={Phone} placeholder="Phone Number" value={form.phone} onChange={(value) => update('phone', value)} />
+                <PillSelect value={form.gender} options={['Female', 'Male', 'Prefer not to say']} placeholder="Gender" onChange={(value) => update('gender', value)} />
+                <PillField icon={Mail} type="email" placeholder="Email Address" value={form.email} onChange={(value) => update('email', value)} className="md:col-span-2" />
+                <PillField icon={MapPin} placeholder="Address" value={form.address} onChange={(value) => update('address', value)} className="md:col-span-2" />
+                <PillField icon={Store} placeholder="Business Name" value={form.businessName} onChange={(value) => update('businessName', value)} />
+                <PillSelect icon={Briefcase} value={form.tradeCategory} options={tradeCategories} placeholder="Trade" onChange={(value) => update('tradeCategory', value)} />
+                <PillField icon={CalendarDays} type="date" placeholder="Date" value={form.registrationDate} onChange={(value) => update('registrationDate', value)} />
+                <label className="flex h-12 items-center gap-3 rounded-[8px] border border-ink-200 bg-ink-50 px-4 text-sm font-medium text-ink-800">
+                  <input className="h-4 w-4 accent-[#0f766e]" type="checkbox" checked={form.passportPhoto} onChange={(event) => update('passportPhoto', event.target.checked)} />
+                  <FileUp className="h-4 w-4" />
+                  Passport photo received
+                  {form.passportPhoto && <CheckCircle2 className="ml-auto h-4 w-4 text-[#0f766e]" />}
+                </label>
               </div>
-            </div>
-          </Section>
+            </Panel>
 
-          <Section
-            icon={FileUp}
-            title="Documents"
-            description="Mark required documents during intake. Upload wiring can follow the backend storage slice."
-          >
-            <div className="grid gap-3 md:grid-cols-3">
-              <DocumentCheck label="Passport photo" checked={form.passportPhoto} onChange={(checked) => update('passportPhoto', checked)} />
-            </div>
-          </Section>
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-sm border border-ink-200 bg-white p-5">
-            <h2 className="text-sm font-semibold text-ink-900">Registration summary</h2>
-            <div className="mt-4 space-y-3 text-sm">
-              <SummaryRow label="Status" value={displayStatus(status)} />
-              <SummaryRow label="Registrar" value={registrar.name || registrar.email || 'Current user'} />
-              <SummaryRow label="Date" value={form.registrationDate || 'Not selected'} />
-              <SummaryRow label="Handler" value={fullName} />
-              <SummaryRow label="Category" value={form.tradeCategory || 'Not selected'} />
-              <SummaryRow label="Jurisdiction" value="Lagos" />
-              <SummaryRow label="Validity" value="12 months" />
-              <SummaryRow label="Estimated fee" value="From selected category" />
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={saveDraft} disabled={isBusy || isCancelled} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-ink-300 px-5 text-sm font-semibold text-ink-700 transition hover:border-[#0f766e] hover:text-[#0f766e] disabled:opacity-60">
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? 'Saving' : 'Save Draft'}
+              </button>
+              <button type="button" onClick={submitForReview} disabled={isBusy || isCancelled} className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#0f766e] px-7 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59] disabled:opacity-60">
+                <Send className="mr-2 h-4 w-4" />
+                {isSubmitting ? 'Submitting' : 'Proceed to payment'}
+              </button>
+              {canCancel && (
+                <button type="button" onClick={cancelDraft} disabled={isBusy} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-red-200 px-5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60">
+                  <Ban className="mr-2 h-4 w-4" />
+                  Cancel
+                </button>
+              )}
+              {isEditing && (
+                <Link href="/dashboard/registrations/new" className="inline-flex h-11 items-center justify-center rounded-[8px] border border-[#0f766e]/30 bg-[#0f766e]/5 px-5 text-sm font-semibold text-[#0f766e] transition hover:bg-[#0f766e]/10">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  New registration
+                </Link>
+              )}
             </div>
           </div>
 
-          <div className="rounded-sm border border-warning/25 bg-warning/5 p-5">
-            <h2 className="text-sm font-semibold text-ink-900">Review checklist</h2>
-            <ul className="mt-3 space-y-2 text-sm text-ink-700">
-              <li>Identity details match submitted document.</li>
-              <li>Trade category has an active tenant fee.</li>
-              <li>Business address is complete enough for follow-up.</li>
-            </ul>
-          </div>
-        </aside>
-      </form>
+          <aside className="rounded-[8px] border border-ink-200 bg-ink-50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0f766e]">Summary</p>
+            <h2 className="mt-3 text-2xl font-semibold text-ink-900">{fullName}</h2>
+            <div className="mt-5 space-y-4 text-sm">
+              <Summary label="Status" value={displayStatus(status)} />
+              <Summary label="UID" value={registration?.uid ?? 'After payment'} />
+              <Summary label="Trade" value={form.tradeCategory || 'Not selected'} />
+              <Summary label="Registrar" value={registrar.name || registrar.email || 'Current user'} />
+              <Summary label="Validity" value="12 months" />
+            </div>
+          </aside>
+        </form>
+      </div>
     </div>
   );
 }
 
-function Section({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-sm border border-ink-200 bg-white">
-      <div className="flex gap-3 border-b border-ink-100 p-5">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm bg-accent/5 text-accent">
-          <Icon className="h-4 w-4" strokeWidth={1.6} />
-        </div>
-        <div>
-          <h2 className="text-base font-semibold text-ink-900">{title}</h2>
-          <p className="mt-1 text-sm text-ink-500">{description}</p>
-        </div>
-      </div>
-      <div className="p-5">{children}</div>
+    <section>
+      <h2 className="mb-4 text-base font-semibold text-ink-900">{title}</h2>
+      {children}
     </section>
   );
 }
 
-function Field({
-  label,
-  id,
+function PillField({
+  icon: Icon,
   type = 'text',
   placeholder,
   value,
   onChange,
+  className = '',
 }: {
-  label: string;
-  id: string;
+  icon?: React.ElementType;
   type?: string;
-  placeholder?: string;
+  placeholder: string;
   value: string;
   onChange: (value: string) => void;
+  className?: string;
 }) {
   return (
-    <div>
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="mt-2" />
-    </div>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-sm font-medium text-ink-800">{label}</p>
-      <div className="mt-2 flex min-h-10 items-center rounded-sm border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-700">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function SelectField({
-  label,
-  id,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  id: string;
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <Label htmlFor={id}>{label}</Label>
-      <select
-        id={id}
-        name={id}
+    <label className={`relative block ${className}`}>
+      {Icon && <Icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />}
+      <input
+        type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 flex h-10 w-full rounded-sm border border-ink-200 bg-white px-3 py-2 text-sm text-ink-800 outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1"
-      >
-        <option value="" disabled>
-          Select {label.toLowerCase()}
-        </option>
-        {options.map((option) => (
-          <option key={option}>{option}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function DocumentCheck({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex min-h-24 cursor-pointer flex-col justify-between rounded-sm border border-dashed border-ink-300 bg-ink-50 p-4 text-sm text-ink-700 hover:border-accent hover:bg-accent/5">
-      <span className="font-medium">{label}</span>
-      <span className="flex items-center gap-2 text-xs text-ink-500">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4 rounded border-ink-300 accent-accent"
-        />
-        <CheckCircle2 className={checked ? 'h-4 w-4 text-success' : 'hidden'} />
-        Received
-      </span>
+        placeholder={placeholder}
+        className={`h-11 w-full rounded-[8px] border border-ink-200 bg-white px-4 text-sm text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15 ${Icon ? 'pl-10' : ''}`}
+      />
     </label>
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function PillSelect({
+  icon: Icon,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  icon?: React.ElementType;
+  value: string;
+  options: string[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-ink-100 pb-3 last:border-0 last:pb-0">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{label}</span>
-      <span className="max-w-[11rem] text-right text-ink-800">{value}</span>
+    <label className="relative block">
+      {Icon && <Icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`h-11 w-full rounded-[8px] border border-ink-200 bg-white px-4 text-sm text-ink-900 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15 ${Icon ? 'pl-10' : ''}`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-b border-ink-200 pb-3">
+      <p className="text-[10px] uppercase tracking-[0.14em] text-ink-500">{label}</p>
+      <p className="mt-1 text-ink-800">{value}</p>
     </div>
   );
 }
@@ -531,10 +426,11 @@ function fromRegistration(registration: EditableRegistration): FormState {
 
 function displayStatus(status: RegistrationStatus): string {
   if (status === 'SUBMITTED_FOR_REVIEW') return 'Submitted for review';
+  if (status === 'READY_FOR_SCREENING') return 'Ready for screening';
   if (status === 'CANCELLED') return 'Cancelled';
   return 'Draft';
 }
 
 function isRegistrationStatus(value: unknown): value is RegistrationStatus {
-  return value === 'DRAFT' || value === 'SUBMITTED_FOR_REVIEW' || value === 'CANCELLED';
+  return value === 'DRAFT' || value === 'SUBMITTED_FOR_REVIEW' || value === 'READY_FOR_SCREENING' || value === 'CANCELLED';
 }

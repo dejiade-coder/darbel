@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const RegistrationStatusDto = z.enum(['DRAFT', 'SUBMITTED_FOR_REVIEW', 'CANCELLED']);
+export const RegistrationStatusDto = z.enum([
+  'DRAFT',
+  'SUBMITTED_FOR_REVIEW',
+  'READY_FOR_SCREENING',
+  'CANCELLED',
+]);
 export type RegistrationStatusDto = z.infer<typeof RegistrationStatusDto>;
 
 const UpsertRegistrationStatusDto = z.enum(['DRAFT', 'SUBMITTED_FOR_REVIEW']);

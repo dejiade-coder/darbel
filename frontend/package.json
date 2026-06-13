@@ -26,7 +26,8 @@
     "date-fns": "^3.2.0",
     "jose": "^5.2.0",
     "lucide-react": "^0.323.0",
-    "next": "14.1.0",
+    "next": "^16.2.9",
+    "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.3",
@@ -40,10 +41,13 @@
     "@types/react": "^18.2.47",
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "14.1.0",
-    "postcss": "^8.4.33",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.2.9",
+    "postcss": "8.5.10",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3"
+  },
+  "overrides": {
+    "postcss": "8.5.10"
   }
 }

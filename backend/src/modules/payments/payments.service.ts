@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import {
   ResourceConflictException,
@@ -22,6 +23,10 @@ export interface PaymentPublicDto {
   paidAt: string;
   recordedBy: string | null;
   recordedAt: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  registrationUid: string | null;
+  registrationHasApprovedPayment: boolean;
   notes: string | null;
 }
 
@@ -65,8 +70,23 @@ export class PaymentsService {
 
       const hasMore = items.length > query.limit;
       const sliced = hasMore ? items.slice(0, query.limit) : items;
+      const registrationIds = [...new Set(sliced.map((item) => item.handlerRegistrationId))];
+      const approvedPayments = registrationIds.length
+        ? await tx.payment.findMany({
+            where: {
+              handlerRegistrationId: { in: registrationIds },
+              status: 'APPROVED',
+            },
+            select: { handlerRegistrationId: true },
+          })
+        : [];
+      const approvedRegistrationIds = new Set(
+        approvedPayments.map((payment) => payment.handlerRegistrationId),
+      );
       return {
-        items: sliced.map(toPublic),
+        items: sliced.map((payment) =>
+          toPublic(payment, approvedRegistrationIds.has(payment.handlerRegistrationId)),
+        ),
         nextCursor: hasMore ? sliced[sliced.length - 1]!.id : null,
       };
     });
@@ -85,6 +105,18 @@ export class PaymentsService {
       }
       if (registration.status === 'CANCELLED') {
         throw new ResourceConflictException('Cancelled registrations cannot receive payments');
+      }
+
+      const existingActivePayment = await tx.payment.findFirst({
+        where: {
+          handlerRegistrationId: dto.handlerRegistrationId,
+          status: { in: ['RECORDED', 'APPROVED'] },
+        },
+      });
+      if (existingActivePayment) {
+        throw new ResourceConflictException(
+          'This registration already has an active payment record',
+        );
       }
 
       const payment = await tx.payment.create({
@@ -106,6 +138,73 @@ export class PaymentsService {
       return toPublic(payment);
     });
   }
+
+  async approve(ctx: ActorContext, id: string): Promise<PaymentPublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id },
+        include: { handlerRegistration: true },
+      });
+      if (!payment) throw new ResourceNotFoundException('Payment', id);
+      if (payment.status !== 'RECORDED') {
+        throw new ResourceConflictException('Only recorded payments can be approved');
+      }
+
+      const existingApprovedPayment = await tx.payment.findFirst({
+        where: {
+          handlerRegistrationId: payment.handlerRegistrationId,
+          status: 'APPROVED',
+          id: { not: id },
+        },
+      });
+      if (existingApprovedPayment) {
+        throw new ResourceConflictException(
+          'This registration already has an approved payment',
+        );
+      }
+
+      let registrationUid = payment.handlerRegistration.uid;
+      if (!registrationUid) {
+        const tenant = await tx.tenant.findUnique({
+          where: { id: payment.tenantId },
+          select: { code: true, isPlatformOperator: true },
+        });
+        if (!tenant) throw new ResourceNotFoundException('Tenant', payment.tenantId);
+        registrationUid = await issueRegistrationUid(
+          tx,
+          payment.handlerRegistrationId,
+          getTenantUidPrefix(tenant),
+          ctx.userId,
+        );
+      }
+
+      await tx.handlerRegistration.update({
+        where: { id: payment.handlerRegistrationId },
+        data: {
+          status: 'READY_FOR_SCREENING',
+          updatedBy: ctx.userId,
+        },
+      });
+
+      const approved = await tx.payment.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          approvedBy: ctx.userId,
+          approvedAt: new Date(),
+        },
+        include: { handlerRegistration: true },
+      });
+
+      return toPublic({
+        ...approved,
+        handlerRegistration: {
+          ...approved.handlerRegistration,
+          uid: registrationUid,
+        },
+      });
+    });
+  }
 }
 
 function emptyToNull(value: string | undefined): string | null {
@@ -113,7 +212,7 @@ function emptyToNull(value: string | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
-function toPublic(row: PaymentRow): PaymentPublicDto {
+function toPublic(row: PaymentRow, registrationHasApprovedPayment?: boolean): PaymentPublicDto {
   const handlerName =
     [row.handlerRegistration.firstName, row.handlerRegistration.lastName]
       .filter(Boolean)
@@ -134,8 +233,78 @@ function toPublic(row: PaymentRow): PaymentPublicDto {
     paidAt: row.paidAt.toISOString(),
     recordedBy: row.recordedBy,
     recordedAt: row.recordedAt.toISOString(),
+    approvedBy: row.approvedBy,
+    approvedAt: row.approvedAt?.toISOString() ?? null,
+    registrationUid: row.handlerRegistration.uid,
+    registrationHasApprovedPayment:
+      registrationHasApprovedPayment ?? row.status === 'APPROVED',
     notes: row.notes,
   };
+}
+
+async function issueRegistrationUid(
+  tx: Prisma.TransactionClient,
+  registrationId: string,
+  tenantPrefix: string,
+  issuedBy: string,
+): Promise<string> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const uid = generateUid(tenantPrefix);
+    try {
+      await tx.handlerRegistration.update({
+        where: { id: registrationId },
+        data: {
+          uid,
+          uidIssuedAt: new Date(),
+          uidIssuedBy: issuedBy,
+        },
+      });
+      return uid;
+    } catch (error) {
+      if (isUniqueConstraintError(error)) continue;
+      throw error;
+    }
+  }
+
+  throw new ResourceConflictException('Could not issue a unique registration UID');
+}
+
+function generateUid(tenantPrefix: string): string {
+  const randomPart = randomBase32(6);
+  const checksum = checksumBase32(`${tenantPrefix}${randomPart}`);
+  return `${tenantPrefix}-${randomPart}-${checksum}`;
+}
+
+function getTenantUidPrefix(tenant: { code: string; isPlatformOperator: boolean }): string {
+  if (tenant.isPlatformOperator) return 'BBH';
+  const letters = tenant.code.toUpperCase().replace(/[^A-Z]/g, '');
+  return (letters + 'XXX').slice(0, 3);
+}
+
+function randomBase32(length: number): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bytes = randomBytes(length);
+  let output = '';
+  for (const byte of bytes) {
+    output += alphabet[byte % alphabet.length];
+  }
+  return output;
+}
+
+function checksumBase32(value: string): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let sum = 0;
+  for (const char of value) {
+    sum = (sum * 31 + char.charCodeAt(0)) % alphabet.length;
+  }
+  return alphabet[sum];
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }
 
 type PaymentRow = {
@@ -151,10 +320,13 @@ type PaymentRow = {
   paidAt: Date;
   recordedBy: string | null;
   recordedAt: Date;
+  approvedBy: string | null;
+  approvedAt: Date | null;
   notes: string | null;
   handlerRegistration: {
     firstName: string | null;
     lastName: string | null;
     tradeCategory: string | null;
+    uid: string | null;
   };
 };

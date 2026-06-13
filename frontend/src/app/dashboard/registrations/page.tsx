@@ -23,7 +23,8 @@ type Registration = {
   phone: string | null;
   tradeCategory: string | null;
   businessName: string | null;
-  status: 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'CANCELLED';
+  uid: string | null;
+  status: 'DRAFT' | 'SUBMITTED_FOR_REVIEW' | 'READY_FOR_SCREENING' | 'CANCELLED';
   createdAt: string;
   submittedAt: string | null;
 };
@@ -31,6 +32,7 @@ type Registration = {
 const statusStyles: Record<string, string> = {
   Draft: 'bg-ink-100 text-ink-700',
   'Submitted for review': 'bg-info/10 text-info',
+  'Ready for screening': 'bg-success/10 text-success',
   Cancelled: 'bg-danger/10 text-danger',
 };
 
@@ -69,6 +71,7 @@ export default async function RegistrationsPage({
 
   const draftCount = items.filter((item) => item.status === 'DRAFT').length;
   const reviewCount = items.filter((item) => item.status === 'SUBMITTED_FOR_REVIEW').length;
+  const readyCount = items.filter((item) => item.status === 'READY_FOR_SCREENING').length;
   const cancelledCount = items.filter((item) => item.status === 'CANCELLED').length;
   const missingDocs = items.filter((item) => item.status !== 'CANCELLED' && (!item.tradeCategory || !item.phone)).length;
   const activeCount = items.length - cancelledCount;
@@ -93,11 +96,12 @@ export default async function RegistrationsPage({
         </Button>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Metric icon={ClipboardList} label="Active records" value={`${activeCount}`} detail="Saved registrations" />
         <Metric icon={Clock3} label="Drafts" value={`${draftCount}`} detail="Still being captured" />
         <Metric icon={FileWarning} label="Needs details" value={`${missingDocs}`} detail="Incomplete draft fields" />
         <Metric icon={BadgeCheck} label="Awaiting review" value={`${reviewCount}`} detail="Submitted by registrars" />
+        <Metric icon={BadgeCheck} label="Ready" value={`${readyCount}`} detail="Payment approved" />
       </section>
 
       <section className="rounded-sm border border-ink-200 bg-white">
@@ -111,7 +115,7 @@ export default async function RegistrationsPage({
               name="q"
               defaultValue={q}
               className="pl-9"
-              placeholder="Search by name, phone, category, or business"
+              placeholder="Search by UID, name, phone, category, or business"
               aria-label="Search registrations"
             />
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
@@ -131,6 +135,12 @@ export default async function RegistrationsPage({
               <Link href={buildRegistrationsHref({ q, status: 'SUBMITTED_FOR_REVIEW' })}>
                 <Filter className="mr-2 h-3.5 w-3.5" />
                 Review
+              </Link>
+            </Button>
+            <Button asChild variant={statusFilter === 'READY_FOR_SCREENING' ? 'default' : 'outline'} size="sm">
+              <Link href={buildRegistrationsHref({ q, status: 'READY_FOR_SCREENING' })}>
+                <Filter className="mr-2 h-3.5 w-3.5" />
+                Ready
               </Link>
             </Button>
             <Button asChild variant={statusFilter === 'CANCELLED' ? 'default' : 'outline'} size="sm">
@@ -180,7 +190,9 @@ export default async function RegistrationsPage({
                 <tr key={handler.id} className="hover:bg-ink-50/70">
                   <td className="px-5 py-4">
                     <p className="font-medium text-ink-900">{name}</p>
-                    <p className="mt-1 font-mono text-xs text-ink-500">{handler.id}</p>
+                    <p className="mt-1 font-mono text-xs text-ink-500">
+                      {handler.uid ?? handler.id}
+                    </p>
                     <p className="mt-1 text-xs text-ink-500">{handler.phone || 'No phone yet'}</p>
                   </td>
                   <td className="px-5 py-4 text-ink-700">{handler.tradeCategory || 'Not selected'}</td>
@@ -216,6 +228,7 @@ export default async function RegistrationsPage({
 
 function displayStatus(status: Registration['status']): string {
   if (status === 'SUBMITTED_FOR_REVIEW') return 'Submitted for review';
+  if (status === 'READY_FOR_SCREENING') return 'Ready for screening';
   if (status === 'CANCELLED') return 'Cancelled';
   return 'Draft';
 }
