@@ -56,13 +56,7 @@ export class MedicalService {
       if (query.status) where.status = query.status;
       if (query.q) {
         where.handlerRegistration = {
-          OR: [
-            { uid: { contains: query.q, mode: 'insensitive' } },
-            { firstName: { contains: query.q, mode: 'insensitive' } },
-            { lastName: { contains: query.q, mode: 'insensitive' } },
-            { phone: { contains: query.q, mode: 'insensitive' } },
-            { tradeCategory: { contains: query.q, mode: 'insensitive' } },
-          ],
+          AND: buildRegistrationSearchClauses(query.q),
         };
       }
       const items = await tx.medicalScreening.findMany({
@@ -87,13 +81,7 @@ export class MedicalService {
         status: { not: 'CANCELLED' },
       };
       if (q) {
-        where.OR = [
-          { uid: { contains: q.toUpperCase(), mode: 'insensitive' } },
-          { firstName: { contains: q, mode: 'insensitive' } },
-          { lastName: { contains: q, mode: 'insensitive' } },
-          { phone: { contains: q, mode: 'insensitive' } },
-          { tradeCategory: { contains: q, mode: 'insensitive' } },
-        ];
+        where.AND = buildRegistrationSearchClauses(q);
       }
 
       const items = await tx.handlerRegistration.findMany({
@@ -260,6 +248,34 @@ function toPublic(row: ScreeningRow): MedicalScreeningPublicDto {
     enteredAt: row.enteredAt?.toISOString() ?? null,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     reviewNotes: row.reviewNotes,
+  };
+}
+
+function buildRegistrationSearchClauses(query: string): Prisma.HandlerRegistrationWhereInput[] {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (tokens.length <= 1) {
+    const value = tokens[0] ?? query.trim();
+    return [buildRegistrationTokenSearch(value)];
+  }
+
+  return tokens.map(buildRegistrationTokenSearch);
+}
+
+function buildRegistrationTokenSearch(token: string): Prisma.HandlerRegistrationWhereInput {
+  return {
+    OR: [
+      { uid: { contains: token, mode: 'insensitive' } },
+      { firstName: { contains: token, mode: 'insensitive' } },
+      { lastName: { contains: token, mode: 'insensitive' } },
+      { phone: { contains: token, mode: 'insensitive' } },
+      { tradeCategory: { contains: token, mode: 'insensitive' } },
+      { businessName: { contains: token, mode: 'insensitive' } },
+    ],
   };
 }
 
