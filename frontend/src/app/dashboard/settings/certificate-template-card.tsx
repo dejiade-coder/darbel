@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type React from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, FileUp, Grip, Image as ImageIcon, RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, FileUp, Grip, Image as ImageIcon, PenLine, RotateCcw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +15,23 @@ type Template = {
   approvedAt: string;
   isApproved: boolean;
   layout: TemplateLayout;
+  signatures?: TemplateSignatures;
   fileUrl: string;
 } | null;
+
+type TemplateSignature = {
+  label: string;
+  originalFilename: string | null;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  fileUrl: string;
+};
+
+type TemplateSignatures = {
+  hod: TemplateSignature | null;
+  deputyHod: TemplateSignature | null;
+};
 
 type TemplateLayout = {
   nameLeftPercent: number;
@@ -29,10 +44,15 @@ type TemplateLayout = {
   detailInsetPercent: number;
   nameScale: number;
   detailScale: number;
+  signatureLeftPercent: number;
+  signatureTopPercent: number;
+  signatureWidthPercent: number;
+  signatureScale: number;
   showVerification: boolean;
 };
 
-type DragTarget = 'name' | 'details';
+type DragTarget = 'name' | 'details' | 'signatures';
+type SignatureSlot = 'hod' | 'deputyHod';
 
 export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: Template }) {
   const [template, setTemplate] = useState(initialTemplate);
@@ -41,6 +61,8 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
   const [savingLayout, setSavingLayout] = useState(false);
   const [layout, setLayout] = useState<TemplateLayout>(normalizeLayout(initialTemplate?.layout ?? DEFAULT_LAYOUT));
   const fileRef = useRef<HTMLInputElement>(null);
+  const hodSignatureRef = useRef<HTMLInputElement>(null);
+  const deputySignatureRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const templateFileUrl = template
     ? `/dashboard/settings/certificate-template/file?v=${encodeURIComponent(template.uploadedAt)}`
@@ -69,6 +91,39 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
       if (fileRef.current) fileRef.current.value = '';
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Template upload failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadSignature(slot: SignatureSlot) {
+    if (!template) {
+      setMessage('Upload an approved certificate template before adding signatures.');
+      return;
+    }
+    const input = slot === 'hod' ? hodSignatureRef.current : deputySignatureRef.current;
+    const file = input?.files?.[0];
+    if (!file) {
+      setMessage(`Choose a ${slot === 'hod' ? 'HOD' : 'Dep. HOD'} signature image first.`);
+      return;
+    }
+    const form = new FormData();
+    form.append('file', file);
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch(`/dashboard/settings/certificate-template/signatures/${slot}`, {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Signature upload failed');
+      setTemplate(data);
+      setLayout(normalizeLayout(data.layout ?? layout));
+      setMessage(`${slot === 'hod' ? 'HOD' : 'Dep. HOD'} signature uploaded.`);
+      if (input) input.value = '';
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Signature upload failed');
     } finally {
       setBusy(false);
     }
@@ -116,6 +171,13 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
           nameTopPercent: y - 6,
         });
       }
+      if (target === 'signatures') {
+        return normalizeLayout({
+          ...current,
+          signatureLeftPercent: x - current.signatureWidthPercent / 2,
+          signatureTopPercent: y - 6,
+        });
+      }
       return normalizeLayout({
         ...current,
         detailLeftPercent: x - current.detailWidthPercent / 2,
@@ -153,6 +215,13 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
           ...current,
           nameLeftPercent: current.nameLeftPercent + dx,
           nameTopPercent: current.nameTopPercent + dy,
+        });
+      }
+      if (target === 'signatures') {
+        return normalizeLayout({
+          ...current,
+          signatureLeftPercent: current.signatureLeftPercent + dx,
+          signatureTopPercent: current.signatureTopPercent + dy,
         });
       }
       return normalizeLayout({
@@ -202,6 +271,26 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
             </Button>
           )}
         </div>
+        {template && (
+          <div className="grid gap-3 rounded-sm border border-ink-100 bg-white p-3 md:grid-cols-2">
+            <SignatureUpload
+              title="HOD signature"
+              inputRef={hodSignatureRef}
+              signature={template.signatures?.hod ?? null}
+              slot="hod"
+              busy={busy}
+              onUpload={uploadSignature}
+            />
+            <SignatureUpload
+              title="Dep. HOD signature"
+              inputRef={deputySignatureRef}
+              signature={template.signatures?.deputyHod ?? null}
+              slot="deputyHod"
+              busy={busy}
+              onUpload={uploadSignature}
+            />
+          </div>
+        )}
         {message && <p className="text-sm text-ink-600">{message}</p>}
 
         {template && (
@@ -277,6 +366,25 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                   )}
                 </div>
               </DraggableBlock>
+              <DraggableBlock
+                label="Signatures"
+                className="bg-white/70"
+                style={{
+                  left: `${layout.signatureLeftPercent}%`,
+                  top: `${layout.signatureTopPercent}%`,
+                  width: `${layout.signatureWidthPercent}%`,
+                }}
+                onPointerDown={startDrag('signatures')}
+                onPointerMove={continueDrag('signatures')}
+              >
+                <div
+                  className="grid grid-cols-2 gap-4 text-center text-ink-900"
+                  style={{ fontSize: `${0.72 * (layout.signatureScale / 100)}rem` }}
+                >
+                  <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} />
+                  <SignaturePreview slot="deputyHod" signature={template.signatures?.deputyHod ?? null} />
+                </div>
+              </DraggableBlock>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -312,10 +420,27 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                 suffix="%"
                 onChange={(value) => updateLayout('detailScale', value)}
               />
+              <Slider
+                label="Signature width"
+                value={layout.signatureWidthPercent}
+                min={35}
+                max={90}
+                suffix="%"
+                onChange={(value) => updateLayout('signatureWidthPercent', value)}
+              />
+              <Slider
+                label="Signature size"
+                value={layout.signatureScale}
+                min={70}
+                max={130}
+                suffix="%"
+                onChange={(value) => updateLayout('signatureScale', value)}
+              />
             </div>
             <div className="grid gap-3 rounded-sm border border-ink-100 bg-ink-50/40 p-3 md:grid-cols-2">
               <NudgePad title="Nudge name" onNudge={(dx, dy) => nudgeBlock('name', dx, dy)} />
               <NudgePad title="Nudge details" onNudge={(dx, dy) => nudgeBlock('details', dx, dy)} />
+              <NudgePad title="Nudge signatures" onNudge={(dx, dy) => nudgeBlock('signatures', dx, dy)} />
             </div>
             <label className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-white px-3 py-2 text-sm">
               <span className="font-medium text-ink-800">Show officer scan barcode on certificate</span>
@@ -353,6 +478,10 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   detailInsetPercent: 10,
   nameScale: 100,
   detailScale: 100,
+  signatureLeftPercent: 18,
+  signatureTopPercent: 66,
+  signatureWidthPercent: 64,
+  signatureScale: 100,
   showVerification: true,
 };
 
@@ -360,6 +489,7 @@ function normalizeLayout(layout: Partial<TemplateLayout>): TemplateLayout {
   const next = { ...DEFAULT_LAYOUT, ...layout };
   const nameWidthPercent = clamp(next.nameWidthPercent, 35, 95);
   const detailWidthPercent = clamp(next.detailWidthPercent, 35, 95);
+  const signatureWidthPercent = clamp(next.signatureWidthPercent, 35, 90);
   return {
     ...next,
     nameLeftPercent: clamp(next.nameLeftPercent, 0, 100 - nameWidthPercent),
@@ -372,6 +502,10 @@ function normalizeLayout(layout: Partial<TemplateLayout>): TemplateLayout {
     detailInsetPercent: clamp(next.detailInsetPercent, 0, 40),
     nameScale: clamp(next.nameScale, 70, 125),
     detailScale: clamp(next.detailScale, 80, 120),
+    signatureLeftPercent: clamp(next.signatureLeftPercent, 0, 100 - signatureWidthPercent),
+    signatureTopPercent: clamp(next.signatureTopPercent, 45, 88),
+    signatureWidthPercent,
+    signatureScale: clamp(next.signatureScale, 70, 130),
     showVerification: next.showVerification,
   };
 }
@@ -436,6 +570,64 @@ function NudgePad({ title, onNudge }: { title: string; onNudge: (dx: number, dy:
       </div>
     </div>
   );
+}
+
+function SignatureUpload({
+  title,
+  inputRef,
+  signature,
+  slot,
+  busy,
+  onUpload,
+}: {
+  title: string;
+  inputRef: React.Ref<HTMLInputElement>;
+  signature: TemplateSignature | null;
+  slot: SignatureSlot;
+  busy: boolean;
+  onUpload: (slot: SignatureSlot) => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-sm border border-ink-100 bg-ink-50/50 p-3">
+      <div className="flex items-start gap-2">
+        <PenLine className="mt-0.5 h-4 w-4 text-accent" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink-900">{title}</p>
+          <p className="mt-1 truncate text-xs text-ink-500">
+            {signature?.originalFilename ?? 'PNG or JPEG signature image'}
+          </p>
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg" className="block w-full text-xs text-ink-700" />
+      <Button type="button" variant="outline" onClick={() => onUpload(slot)} disabled={busy}>
+        <FileUp className="mr-2 h-4 w-4" />
+        Upload {slot === 'hod' ? 'HOD' : 'Dep. HOD'}
+      </Button>
+    </div>
+  );
+}
+
+function SignaturePreview({ slot, signature }: { slot: SignatureSlot; signature: TemplateSignature | null }) {
+  const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
+  const src = signature ? signatureFileUrl(slot, signature.uploadedAt) : '';
+  return (
+    <div>
+      <div className="flex h-10 items-end justify-center">
+        {signature ? (
+          <img src={src} alt={`${label} signature`} className="max-h-10 max-w-full object-contain" />
+        ) : (
+          <span className="text-[9px] uppercase tracking-[0.14em] text-ink-400">{label} signature</span>
+        )}
+      </div>
+      <div className="mt-1 border-t border-ink-900 pt-1">
+        <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function signatureFileUrl(slot: SignatureSlot, uploadedAt: string): string {
+  return `/dashboard/settings/certificate-template/signatures/${slot}/file?v=${encodeURIComponent(uploadedAt)}`;
 }
 
 function NudgeButton({

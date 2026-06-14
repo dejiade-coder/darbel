@@ -12,7 +12,10 @@ const TEMPLATE_KEY = 'certificate_template';
 const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
 const MESSAGE_TEMPLATES_KEY = 'message_templates';
 const MAX_TEMPLATE_SIZE = 8 * 1024 * 1024;
+const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_TEMPLATE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const ALLOWED_SIGNATURE_MIME_TYPES = new Set(['image/jpeg', 'image/png']);
+const SIGNATURE_SLOTS = new Set(['hod', 'deputyHod']);
 
 export interface UploadedTemplateFile {
   originalname?: string;
@@ -30,12 +33,38 @@ export interface CertificateTemplateDto {
   approvedAt: string;
   isApproved: boolean;
   layout: CertificateTemplateLayout;
+  signatures: CertificateTemplateSignatures;
   fileUrl: string;
 }
 
-type StoredTemplate = Omit<CertificateTemplateDto, 'fileUrl'> & {
+type StoredTemplate = Omit<CertificateTemplateDto, 'fileUrl' | 'signatures'> & {
+  storageKey: string;
+  signatures: StoredCertificateTemplateSignatures;
+};
+
+export interface CertificateTemplateSignature {
+  label: string;
+  originalFilename: string | null;
+  mimeType: string;
+  sizeBytes: number;
+  sha256Hash: string;
+  uploadedAt: string;
+  fileUrl: string;
+}
+
+type StoredCertificateTemplateSignature = Omit<CertificateTemplateSignature, 'fileUrl'> & {
   storageKey: string;
 };
+
+type StoredCertificateTemplateSignatures = {
+  hod: StoredCertificateTemplateSignature | null;
+  deputyHod: StoredCertificateTemplateSignature | null;
+};
+
+export interface CertificateTemplateSignatures {
+  hod: CertificateTemplateSignature | null;
+  deputyHod: CertificateTemplateSignature | null;
+}
 
 export interface CertificateTemplateLayout {
   nameLeftPercent: number;
@@ -48,6 +77,10 @@ export interface CertificateTemplateLayout {
   detailInsetPercent: number;
   nameScale: number;
   detailScale: number;
+  signatureLeftPercent: number;
+  signatureTopPercent: number;
+  signatureWidthPercent: number;
+  signatureScale: number;
   showVerification: boolean;
 }
 
@@ -196,13 +229,7 @@ export class TenantSettingsService {
       });
       if (!setting) return null;
       const value = setting.settingValue as unknown as StoredTemplate;
-      return {
-        ...value,
-        approvedAt: value.approvedAt ?? value.uploadedAt,
-        isApproved: true,
-        layout: normalizeLayout(value.layout),
-        fileUrl: '/api/v1/tenant-settings/certificate-template/file',
-      };
+      return toCertificateTemplateDto(value);
     });
   }
 
@@ -222,6 +249,7 @@ export class TenantSettingsService {
         approvedAt: value.approvedAt ?? value.uploadedAt,
         isApproved: true,
         layout: normalizeLayout({ ...normalizeLayout(value.layout), ...layout }),
+        signatures: normalizeSignatures(value.signatures),
       };
 
       await tx.tenantSetting.update({
@@ -232,10 +260,7 @@ export class TenantSettingsService {
         },
       });
 
-      return {
-        ...next,
-        fileUrl: '/api/v1/tenant-settings/certificate-template/file',
-      };
+      return toCertificateTemplateDto(next);
     });
   }
 
@@ -250,25 +275,32 @@ export class TenantSettingsService {
     if (!file.size || file.size > MAX_TEMPLATE_SIZE) {
       throw new ResourceConflictException('Certificate template must be 8 MB or smaller');
     }
+    const mimeType = file.mimetype;
+    const sizeBytes = file.size;
+    const buffer = file.buffer;
 
     const storageKey = buildStorageKey(ctx.tenantId, file.originalname);
     const fullPath = join(process.cwd(), 'storage', storageKey);
     await mkdir(join(process.cwd(), 'storage', 'certificate-templates', ctx.tenantId), { recursive: true });
     await writeFile(fullPath, file.buffer);
 
-    const stored: StoredTemplate = {
-      storageKey,
-      originalFilename: file.originalname ?? null,
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
-      sha256Hash: createHash('sha256').update(file.buffer).digest('hex'),
-      uploadedAt: new Date().toISOString(),
-      approvedAt: new Date().toISOString(),
-      isApproved: true,
-      layout: DEFAULT_LAYOUT,
-    };
-
     return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: TEMPLATE_KEY } },
+      });
+      const current = setting?.settingValue as unknown as Partial<StoredTemplate> | undefined;
+      const stored: StoredTemplate = {
+        storageKey,
+        originalFilename: file.originalname ?? null,
+        mimeType,
+        sizeBytes,
+        sha256Hash: createHash('sha256').update(buffer).digest('hex'),
+        uploadedAt: new Date().toISOString(),
+        approvedAt: new Date().toISOString(),
+        isApproved: true,
+        layout: normalizeLayout(current?.layout),
+        signatures: normalizeSignatures(current?.signatures),
+      };
       await tx.tenantSetting.upsert({
         where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: TEMPLATE_KEY } },
         create: {
@@ -282,7 +314,7 @@ export class TenantSettingsService {
           updatedBy: ctx.userId,
         },
       });
-      return { ...stored, fileUrl: '/api/v1/tenant-settings/certificate-template/file' };
+      return toCertificateTemplateDto(stored);
     });
   }
 
@@ -304,6 +336,91 @@ export class TenantSettingsService {
       };
     });
   }
+
+  async uploadCertificateSignature(
+    ctx: ActorContext,
+    slot: string,
+    file: UploadedTemplateFile | undefined,
+  ): Promise<CertificateTemplateDto> {
+    const normalizedSlot = normalizeSignatureSlot(slot);
+    if (!file?.buffer?.length) throw new ResourceConflictException('Choose a signature image to upload');
+    if (!file.mimetype || !ALLOWED_SIGNATURE_MIME_TYPES.has(file.mimetype)) {
+      throw new ResourceConflictException('Only PNG and JPEG signature images are allowed');
+    }
+    if (!file.size || file.size > MAX_SIGNATURE_SIZE) {
+      throw new ResourceConflictException('Signature image must be 2 MB or smaller');
+    }
+    const mimeType = file.mimetype;
+    const sizeBytes = file.size;
+    const buffer = file.buffer;
+
+    const storageKey = buildSignatureStorageKey(ctx.tenantId, file.originalname);
+    const fullPath = join(process.cwd(), 'storage', storageKey);
+    await mkdir(join(process.cwd(), 'storage', 'certificate-signatures', ctx.tenantId), { recursive: true });
+    await writeFile(fullPath, file.buffer);
+
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: TEMPLATE_KEY } },
+      });
+      if (!setting) throw new ResourceNotFoundException('Certificate template', ctx.tenantId);
+
+      const value = setting.settingValue as unknown as StoredTemplate;
+      const signatures = normalizeSignatures(value.signatures);
+      signatures[normalizedSlot] = {
+        label: normalizedSlot === 'hod' ? 'HOD' : 'Dep. HOD',
+        originalFilename: file.originalname ?? null,
+        mimeType,
+        sizeBytes,
+        sha256Hash: createHash('sha256').update(buffer).digest('hex'),
+        uploadedAt: new Date().toISOString(),
+        storageKey,
+      };
+
+      const next: StoredTemplate = {
+        ...value,
+        approvedAt: value.approvedAt ?? value.uploadedAt,
+        isApproved: true,
+        layout: normalizeLayout(value.layout),
+        signatures,
+      };
+
+      await tx.tenantSetting.update({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: TEMPLATE_KEY } },
+        data: {
+          settingValue: next as unknown as Prisma.InputJsonValue,
+          updatedBy: ctx.userId,
+        },
+      });
+
+      return toCertificateTemplateDto(next);
+    });
+  }
+
+  async openCertificateSignatureFile(
+    ctx: ActorContext,
+    slot: string,
+  ): Promise<{
+    stream: NodeJS.ReadableStream;
+    mimeType: string;
+    filename: string;
+  }> {
+    const normalizedSlot = normalizeSignatureSlot(slot);
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({
+        where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: TEMPLATE_KEY } },
+      });
+      if (!setting) throw new ResourceNotFoundException('Certificate template', ctx.tenantId);
+      const value = setting.settingValue as unknown as StoredTemplate;
+      const signature = normalizeSignatures(value.signatures)[normalizedSlot];
+      if (!signature) throw new ResourceNotFoundException('Certificate signature', normalizedSlot);
+      return {
+        stream: createReadStream(join(process.cwd(), 'storage', signature.storageKey)),
+        mimeType: signature.mimeType,
+        filename: signature.originalFilename ?? `${normalizedSlot}-signature`,
+      };
+    });
+  }
 }
 
 const DEFAULT_LAYOUT: CertificateTemplateLayout = {
@@ -317,6 +434,10 @@ const DEFAULT_LAYOUT: CertificateTemplateLayout = {
   detailInsetPercent: 10,
   nameScale: 100,
   detailScale: 100,
+  signatureLeftPercent: 18,
+  signatureTopPercent: 66,
+  signatureWidthPercent: 64,
+  signatureScale: 100,
   showVerification: true,
 };
 
@@ -336,6 +457,7 @@ function normalizeLayout(layout: Partial<CertificateTemplateLayout> | undefined)
 
   const nameWidthPercent = clampNumber(layout?.nameWidthPercent, 35, 95, DEFAULT_LAYOUT.nameWidthPercent);
   const detailWidthPercent = clampNumber(detailWidthFromLegacyInset, 35, 95, DEFAULT_LAYOUT.detailWidthPercent);
+  const signatureWidthPercent = clampNumber(layout?.signatureWidthPercent, 35, 90, DEFAULT_LAYOUT.signatureWidthPercent);
 
   return {
     nameLeftPercent: clampNumber(layout?.nameLeftPercent, 0, 100 - nameWidthPercent, DEFAULT_LAYOUT.nameLeftPercent),
@@ -348,6 +470,15 @@ function normalizeLayout(layout: Partial<CertificateTemplateLayout> | undefined)
     detailInsetPercent: clampNumber(layout?.detailInsetPercent, 5, 24, DEFAULT_LAYOUT.detailInsetPercent),
     nameScale: clampNumber(layout?.nameScale, 70, 125, DEFAULT_LAYOUT.nameScale),
     detailScale: clampNumber(layout?.detailScale, 80, 120, DEFAULT_LAYOUT.detailScale),
+    signatureLeftPercent: clampNumber(
+      layout?.signatureLeftPercent,
+      0,
+      100 - signatureWidthPercent,
+      DEFAULT_LAYOUT.signatureLeftPercent,
+    ),
+    signatureTopPercent: clampNumber(layout?.signatureTopPercent, 45, 88, DEFAULT_LAYOUT.signatureTopPercent),
+    signatureWidthPercent,
+    signatureScale: clampNumber(layout?.signatureScale, 70, 130, DEFAULT_LAYOUT.signatureScale),
     showVerification: layout?.showVerification ?? DEFAULT_LAYOUT.showVerification,
   };
 }
@@ -361,6 +492,75 @@ function buildStorageKey(tenantId: string, originalName?: string): string {
   const rawExt = originalName ? extname(originalName).toLowerCase() : '';
   const ext = ['.jpg', '.jpeg', '.png', '.pdf'].includes(rawExt) ? rawExt : '.bin';
   return join('certificate-templates', tenantId, `${randomUUID()}${ext}`);
+}
+
+function buildSignatureStorageKey(tenantId: string, originalName?: string): string {
+  const rawExt = originalName ? extname(originalName).toLowerCase() : '';
+  const ext = ['.jpg', '.jpeg', '.png'].includes(rawExt) ? rawExt : '.png';
+  return join('certificate-signatures', tenantId, `${randomUUID()}${ext}`);
+}
+
+function normalizeSignatureSlot(slot: string): keyof CertificateTemplateSignatures {
+  if (!SIGNATURE_SLOTS.has(slot)) throw new ResourceNotFoundException('Certificate signature', slot);
+  return slot as keyof CertificateTemplateSignatures;
+}
+
+function toCertificateTemplateDto(value: StoredTemplate): CertificateTemplateDto {
+  return {
+    originalFilename: value.originalFilename,
+    mimeType: value.mimeType,
+    sizeBytes: value.sizeBytes,
+    sha256Hash: value.sha256Hash,
+    uploadedAt: value.uploadedAt,
+    approvedAt: value.approvedAt ?? value.uploadedAt,
+    isApproved: true,
+    layout: normalizeLayout(value.layout),
+    signatures: {
+      hod: toSignatureDto(normalizeSignatures(value.signatures).hod, 'hod'),
+      deputyHod: toSignatureDto(normalizeSignatures(value.signatures).deputyHod, 'deputyHod'),
+    },
+    fileUrl: '/api/v1/tenant-settings/certificate-template/file',
+  };
+}
+
+function toSignatureDto(
+  value: StoredCertificateTemplateSignature | null,
+  slot: keyof CertificateTemplateSignatures,
+): CertificateTemplateSignature | null {
+  if (!value) return null;
+  return {
+    label: value.label,
+    originalFilename: value.originalFilename,
+    mimeType: value.mimeType,
+    sizeBytes: value.sizeBytes,
+    sha256Hash: value.sha256Hash,
+    uploadedAt: value.uploadedAt,
+    fileUrl: `/api/v1/tenant-settings/certificate-template/signatures/${slot}/file`,
+  };
+}
+
+function normalizeSignatures(value: unknown): StoredCertificateTemplateSignatures {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<StoredCertificateTemplateSignatures>;
+  return {
+    hod: normalizeSignature(raw.hod, 'hod'),
+    deputyHod: normalizeSignature(raw.deputyHod, 'deputyHod'),
+  };
+}
+
+function normalizeSignature(
+  value: Partial<StoredCertificateTemplateSignature> | null | undefined,
+  slot: keyof CertificateTemplateSignatures,
+): StoredCertificateTemplateSignature | null {
+  if (!value?.storageKey || !value.mimeType || !value.uploadedAt) return null;
+  return {
+    label: value.label ?? (slot === 'hod' ? 'HOD' : 'Dep. HOD'),
+    originalFilename: value.originalFilename ?? null,
+    mimeType: value.mimeType,
+    sizeBytes: value.sizeBytes ?? 0,
+    sha256Hash: value.sha256Hash ?? '',
+    uploadedAt: value.uploadedAt,
+    storageKey: value.storageKey,
+  };
 }
 
 function normalizeNotificationProviders(value: unknown): StoredNotificationProviders {

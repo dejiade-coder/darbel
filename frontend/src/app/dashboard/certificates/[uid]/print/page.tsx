@@ -24,7 +24,22 @@ type CertificateTemplate = {
   uploadedAt?: string;
   isApproved?: boolean;
   layout?: CertificateTemplateLayout;
+  signatures?: CertificateTemplateSignatures;
 } | null;
+
+type CertificateTemplateSignature = {
+  label: string;
+  originalFilename: string | null;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  fileUrl: string;
+};
+
+type CertificateTemplateSignatures = {
+  hod: CertificateTemplateSignature | null;
+  deputyHod: CertificateTemplateSignature | null;
+};
 
 type CertificateTemplateLayout = {
   nameLeftPercent: number;
@@ -37,6 +52,10 @@ type CertificateTemplateLayout = {
   detailInsetPercent: number;
   nameScale: number;
   detailScale: number;
+  signatureLeftPercent: number;
+  signatureTopPercent: number;
+  signatureWidthPercent: number;
+  signatureScale: number;
   showVerification: boolean;
 };
 
@@ -49,6 +68,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
   const officerScanUrl = `${protocol}://${host}/dashboard/certificates/${encodeURIComponent(uid)}/scan`;
   const layout = normalizeLayout(template?.layout);
   const templateFileUrl = buildTemplateFileUrl(template);
+  const signatures = template?.signatures ?? { hod: null, deputyHod: null };
 
   return (
     <div className="min-h-screen bg-parchment px-6 py-8 print:bg-white print:p-0">
@@ -117,6 +137,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               </div>
             )}
           </div>
+          <SignatureOverlay layout={layout} signatures={signatures} />
         </main>
       )}
 
@@ -167,6 +188,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               </div>
             )}
           </div>
+          <SignatureOverlay layout={layout} signatures={signatures} panel />
         </main>
       )}
 
@@ -197,6 +219,8 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               <Fact label="Issued" value={formatDate(result.issuedAt)} />
               <Fact label="Expires" value={formatDate(result.expiresAt)} />
             </div>
+
+            <SignatureRow signatures={signatures} />
 
             <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div>
@@ -253,6 +277,68 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SignatureOverlay({
+  layout,
+  signatures,
+  panel = false,
+}: {
+  layout: CertificateTemplateLayout;
+  signatures: CertificateTemplateSignatures;
+  panel?: boolean;
+}) {
+  if (!signatures.hod && !signatures.deputyHod) return null;
+  return (
+    <div
+      className={`absolute grid grid-cols-2 gap-8 text-center text-ink-900 ${panel ? 'bg-white/75 p-4 print:bg-white/80' : ''}`}
+      style={{
+        left: `${layout.signatureLeftPercent}%`,
+        top: `${layout.signatureTopPercent}%`,
+        width: `${layout.signatureWidthPercent}%`,
+        fontSize: `${0.875 * (layout.signatureScale / 100)}rem`,
+      }}
+    >
+      <PrintedSignature slot="hod" signature={signatures.hod} />
+      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} />
+    </div>
+  );
+}
+
+function SignatureRow({ signatures }: { signatures: CertificateTemplateSignatures }) {
+  if (!signatures.hod && !signatures.deputyHod) return null;
+  return (
+    <div className="mt-8 grid gap-10 text-center md:grid-cols-2">
+      <PrintedSignature slot="hod" signature={signatures.hod} />
+      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} />
+    </div>
+  );
+}
+
+function PrintedSignature({
+  slot,
+  signature,
+}: {
+  slot: keyof CertificateTemplateSignatures;
+  signature: CertificateTemplateSignature | null;
+}) {
+  const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
+  return (
+    <div>
+      <div className="flex h-16 items-end justify-center">
+        {signature && (
+          <img
+            src={signatureFileUrl(slot, signature.uploadedAt)}
+            alt={`${label} signature`}
+            className="max-h-16 max-w-full object-contain"
+          />
+        )}
+      </div>
+      <div className="mt-2 border-t border-ink-900 pt-2">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 function buildTemplateFileUrl(template: CertificateTemplate): string {
   const version = template?.uploadedAt ? `?v=${encodeURIComponent(template.uploadedAt)}` : '';
   return `/dashboard/settings/certificate-template/file${version}`;
@@ -269,6 +355,10 @@ const DEFAULT_LAYOUT: CertificateTemplateLayout = {
   detailInsetPercent: 10,
   nameScale: 100,
   detailScale: 100,
+  signatureLeftPercent: 18,
+  signatureTopPercent: 66,
+  signatureWidthPercent: 64,
+  signatureScale: 100,
   showVerification: true,
 };
 
@@ -287,8 +377,16 @@ function normalizeLayout(layout: Partial<CertificateTemplateLayout> | undefined)
     detailInsetPercent: layout?.detailInsetPercent ?? DEFAULT_LAYOUT.detailInsetPercent,
     nameScale: layout?.nameScale ?? DEFAULT_LAYOUT.nameScale,
     detailScale: layout?.detailScale ?? DEFAULT_LAYOUT.detailScale,
+    signatureLeftPercent: layout?.signatureLeftPercent ?? DEFAULT_LAYOUT.signatureLeftPercent,
+    signatureTopPercent: layout?.signatureTopPercent ?? DEFAULT_LAYOUT.signatureTopPercent,
+    signatureWidthPercent: layout?.signatureWidthPercent ?? DEFAULT_LAYOUT.signatureWidthPercent,
+    signatureScale: layout?.signatureScale ?? DEFAULT_LAYOUT.signatureScale,
     showVerification: layout?.showVerification ?? DEFAULT_LAYOUT.showVerification,
   };
+}
+
+function signatureFileUrl(slot: keyof CertificateTemplateSignatures, uploadedAt: string): string {
+  return `/dashboard/settings/certificate-template/signatures/${slot}/file?v=${encodeURIComponent(uploadedAt)}`;
 }
 
 function formatDate(value: string): string {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CurrentUser, Permissions, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
@@ -80,6 +80,32 @@ export class TenantSettingsController {
     @Res() res: Response,
   ) {
     const file = await this.settings.openCertificateTemplateFile(toContext(actor, req));
+    res.setHeader('content-type', file.mimeType);
+    res.setHeader('content-disposition', `inline; filename="${file.filename}"`);
+    file.stream.pipe(res);
+  }
+
+  @Post('certificate-template/signatures/:slot')
+  @Permissions('tenant.update_own')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSignature(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('slot') slot: string,
+    @UploadedFile() file: UploadedTemplateFile,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.settings.uploadCertificateSignature(toContext(actor, req), slot, file);
+  }
+
+  @Get('certificate-template/signatures/:slot/file')
+  @Permissions('tenant.view')
+  async getSignatureFile(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('slot') slot: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const file = await this.settings.openCertificateSignatureFile(toContext(actor, req), slot);
     res.setHeader('content-type', file.mimeType);
     res.setHeader('content-disposition', `inline; filename="${file.filename}"`);
     file.stream.pipe(res);

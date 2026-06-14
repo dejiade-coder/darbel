@@ -32,7 +32,29 @@ type CertificateTemplate = {
     detailInsetPercent: number;
     nameScale: number;
     detailScale: number;
+    signatureLeftPercent: number;
+    signatureTopPercent: number;
+    signatureWidthPercent: number;
+    signatureScale: number;
     showVerification: boolean;
+  };
+  signatures?: {
+    hod: {
+      label: string;
+      originalFilename: string | null;
+      mimeType: string;
+      sizeBytes: number;
+      uploadedAt: string;
+      fileUrl: string;
+    } | null;
+    deputyHod: {
+      label: string;
+      originalFilename: string | null;
+      mimeType: string;
+      sizeBytes: number;
+      uploadedAt: string;
+      fileUrl: string;
+    } | null;
   };
   fileUrl: string;
 } | null;
