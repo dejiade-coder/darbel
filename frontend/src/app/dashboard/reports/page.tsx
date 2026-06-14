@@ -213,6 +213,7 @@ const REPORT_STATUSES = [
   'APPROVED',
   'REJECTED',
   'VALID',
+  'UNDER_APPEAL',
   'REVOKED',
   'EXPIRED',
 ];

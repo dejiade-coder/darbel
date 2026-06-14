@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type React from 'react';
-import { BadgeCheck, CalendarDays, FileSpreadsheet, Printer, Search, Send, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, CalendarDays, FileSpreadsheet, Gavel, Printer, Search, Send, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +29,20 @@ type Certificate = {
     messagePreview: string | null;
     performedAt: string;
   } | null;
+  latestAppeal: {
+    channel: string;
+    status: string;
+    notes: string | null;
+    performedAt: string;
+  } | null;
 };
 
-type StatusFilter = '' | 'VALID' | 'REVOKED' | 'EXPIRED';
+type StatusFilter = '' | 'VALID' | 'UNDER_APPEAL' | 'REVOKED' | 'EXPIRED';
 
 const STATUS_TABS: Array<{ label: string; value: StatusFilter }> = [
   { label: 'All certificates', value: '' },
   { label: 'Valid', value: 'VALID' },
+  { label: 'Under appeal', value: 'UNDER_APPEAL' },
   { label: 'Revoked', value: 'REVOKED' },
   { label: 'Expired', value: 'EXPIRED' },
 ];
@@ -63,8 +70,8 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
   const now = new Date();
   const validCount = items.filter((item) => item.status === 'VALID' && new Date(item.expiresAt) >= now).length;
   const expiredCount = items.filter((item) => item.status === 'EXPIRED' || new Date(item.expiresAt) < now).length;
+  const appealCount = items.filter((item) => item.status === 'UNDER_APPEAL').length;
   const revokedCount = items.filter((item) => item.status === 'REVOKED').length;
-  const deliveredCount = items.filter((item) => item.latestDelivery).length;
 
   return (
     <div className="space-y-6">
@@ -96,9 +103,9 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric icon={ShieldCheck} label="Valid" value={validCount} detail="Ready for delivery or scan" />
+        <Metric icon={Gavel} label="Appeals" value={appealCount} detail="Awaiting review decision" />
         <Metric icon={CalendarDays} label="Expired" value={expiredCount} detail="Needs renewal review" />
         <Metric icon={ShieldAlert} label="Revoked" value={revokedCount} detail="No longer usable" />
-        <Metric icon={Send} label="Delivered" value={deliveredCount} detail="Print, email, or WhatsApp recorded" />
       </section>
 
       <section className="rounded-sm border border-ink-200 bg-white p-4">
@@ -152,6 +159,12 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
                     Revoked {item.revokedAt ? formatDate(item.revokedAt) : ''}{item.revokeReason ? ` - ${item.revokeReason}` : ''}
                   </p>
                 )}
+                {item.latestAppeal && (
+                  <p className="mt-2 max-w-xl rounded-sm border border-warning/20 bg-warning/5 p-2 text-xs text-warning">
+                    Appeal {formatAppealStatus(item.latestAppeal)} {formatDate(item.latestAppeal.performedAt)}
+                    {item.latestAppeal.notes ? ` - ${item.latestAppeal.notes}` : ''}
+                  </p>
+                )}
                 <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-500">
                   <Send className="h-3.5 w-3.5" />
                   {formatDelivery(item.latestDelivery)}
@@ -201,6 +214,7 @@ function formatDate(value: string): string {
 
 function displayStatus(item: Certificate): string {
   if (item.status === 'VALID' && new Date(item.expiresAt) < new Date()) return 'EXPIRED';
+  if (item.status === 'UNDER_APPEAL') return 'UNDER APPEAL';
   return item.status;
 }
 
@@ -209,6 +223,7 @@ function statusVariant(item: Certificate): React.ComponentProps<typeof Badge>['v
   if (status === 'VALID') return 'success';
   if (status === 'EXPIRED') return 'warning';
   if (status === 'REVOKED') return 'danger';
+  if (status === 'UNDER APPEAL') return 'warning';
   return 'default';
 }
 
@@ -235,4 +250,10 @@ function formatDeliveryStatus(status: string): string {
   if (status === 'NEEDS_PROVIDER') return 'needs provider setup';
   if (status === 'MISSING_RECIPIENT') return 'missing recipient';
   return 'recorded';
+}
+
+function formatAppealStatus(appeal: NonNullable<Certificate['latestAppeal']>): string {
+  if (appeal.channel === 'APPEAL_APPROVED') return 'approved';
+  if (appeal.channel === 'APPEAL_REJECTED') return 'rejected';
+  return 'submitted';
 }

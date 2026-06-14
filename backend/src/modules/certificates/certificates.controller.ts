@@ -4,7 +4,13 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { CurrentUser, Permissions, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CertificatesService } from './certificates.service';
-import { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
+import {
+  AppealCertificateDto,
+  RecordCertificateDeliveryDto,
+  RenewCertificateDto,
+  RevokeCertificateDto,
+  ReviewCertificateAppealDto,
+} from './certificates.dto';
 
 @Controller()
 export class CertificatesController {
@@ -63,6 +69,30 @@ export class CertificatesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.certificates.renew(toContext(actor, req), id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('certificates/:id/appeal')
+  @Permissions('certificate.revoke')
+  appeal(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AppealCertificateDto)) dto: AppealCertificateDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.certificates.appeal(toContext(actor, req), id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Patch('certificates/:id/appeal-review')
+  @Permissions('certificate.issue')
+  reviewAppeal(
+    @CurrentUser() actor: AuthenticatedActor,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(ReviewCertificateAppealDto)) dto: ReviewCertificateAppealDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.certificates.reviewAppeal(toContext(actor, req), id, dto);
   }
 }
 

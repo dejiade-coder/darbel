@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
-import type { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
+import type {
+  AppealCertificateDto,
+  RecordCertificateDeliveryDto,
+  RenewCertificateDto,
+  RevokeCertificateDto,
+  ReviewCertificateAppealDto,
+} from './certificates.dto';
 
 const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
 const MESSAGE_TEMPLATES_KEY = 'message_templates';
@@ -21,6 +27,7 @@ export interface CertificatePublicDto {
   revokedAt: string | null;
   revokeReason: string | null;
   latestDelivery: CertificateDeliveryPublicDto | null;
+  latestAppeal: CertificateAppealPublicDto | null;
 }
 
 export interface CertificateDeliveryPublicDto {
@@ -41,6 +48,13 @@ export interface VerificationDto {
   status: string;
 }
 
+export interface CertificateAppealPublicDto {
+  channel: string;
+  status: string;
+  notes: string | null;
+  performedAt: string;
+}
+
 @Injectable()
 export class CertificatesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,6 +68,8 @@ export class CertificatesService {
       } else if (status === 'VALID') {
         where.status = 'VALID';
         where.expiresAt = { gte: new Date() };
+      } else if (status === 'UNDER_APPEAL') {
+        where.status = 'UNDER_APPEAL';
       } else if (status) {
         where.status = status;
       }
@@ -71,7 +87,7 @@ export class CertificatesService {
           handlerRegistration: true,
           deliveries: {
             orderBy: { performedAt: 'desc' },
-            take: 1,
+            take: 10,
           },
         },
         orderBy: { issuedAt: 'desc' },
@@ -226,7 +242,7 @@ export class CertificatesService {
         },
       });
       if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
-      if (certificate.status === 'REVOKED') {
+      if (certificate.status === 'REVOKED' || certificate.status === 'UNDER_APPEAL') {
         throw new ResourceConflictException('Revoked certificates cannot be renewed');
       }
 
@@ -248,9 +264,133 @@ export class CertificatesService {
       return toPublic(renewed);
     });
   }
+
+  async appeal(
+    ctx: ActorContext,
+    certificateId: string,
+    dto: AppealCertificateDto,
+  ): Promise<CertificatePublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const certificate = await tx.certificate.findUnique({
+        where: { id: certificateId },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 10,
+          },
+        },
+      });
+      if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+      if (certificate.status !== 'REVOKED') {
+        throw new ResourceConflictException('Only revoked certificates can be submitted for appeal');
+      }
+
+      await tx.certificateDelivery.create({
+        data: {
+          tenantId: certificate.tenantId,
+          certificateId: certificate.id,
+          channel: 'APPEAL',
+          deliveryStatus: 'SUBMITTED',
+          recipient: null,
+          messagePreview: dto.reason,
+          performedBy: ctx.userId,
+          metadata: {
+            appeal: {
+              status: 'SUBMITTED',
+              reason: dto.reason,
+              submittedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+
+      const appealed = await tx.certificate.update({
+        where: { id: certificateId },
+        data: { status: 'UNDER_APPEAL' },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 10,
+          },
+        },
+      });
+
+      return toPublic(appealed);
+    });
+  }
+
+  async reviewAppeal(
+    ctx: ActorContext,
+    certificateId: string,
+    dto: ReviewCertificateAppealDto,
+  ): Promise<CertificatePublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const certificate = await tx.certificate.findUnique({
+        where: { id: certificateId },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 10,
+          },
+        },
+      });
+      if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+      if (certificate.status !== 'UNDER_APPEAL') {
+        throw new ResourceConflictException('Only certificates under appeal can be reviewed');
+      }
+
+      const approved = dto.decision === 'APPROVE';
+      await tx.certificateDelivery.create({
+        data: {
+          tenantId: certificate.tenantId,
+          certificateId: certificate.id,
+          channel: approved ? 'APPEAL_APPROVED' : 'APPEAL_REJECTED',
+          deliveryStatus: approved ? 'APPROVED' : 'REJECTED',
+          recipient: null,
+          messagePreview: dto.notes,
+          performedBy: ctx.userId,
+          metadata: {
+            appeal: {
+              status: approved ? 'APPROVED' : 'REJECTED',
+              notes: dto.notes,
+              validityDays: approved ? dto.validityDays : null,
+              reviewedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+
+      const reviewed = await tx.certificate.update({
+        where: { id: certificateId },
+        data: approved
+          ? {
+              status: 'VALID',
+              expiresAt: addDays(new Date(), dto.validityDays),
+              revokedBy: null,
+              revokedAt: null,
+              revokeReason: null,
+            }
+          : { status: 'REVOKED' },
+        include: {
+          handlerRegistration: true,
+          deliveries: {
+            orderBy: { performedAt: 'desc' },
+            take: 10,
+          },
+        },
+      });
+
+      return toPublic(reviewed);
+    });
+  }
 }
 
 function toPublic(row: CertificateRow): CertificatePublicDto {
+  const latestDelivery = row.deliveries.find((delivery) => isDeliveryChannel(delivery.channel)) ?? null;
+  const latestAppeal = row.deliveries.find((delivery) => isAppealChannel(delivery.channel)) ?? null;
   return {
     id: row.id,
     uid: row.uid,
@@ -267,7 +407,8 @@ function toPublic(row: CertificateRow): CertificatePublicDto {
     expiresAt: row.expiresAt.toISOString(),
     revokedAt: row.revokedAt?.toISOString() ?? null,
     revokeReason: row.revokeReason,
-    latestDelivery: row.deliveries[0] ? toDeliveryPublic(row.deliveries[0]) : null,
+    latestDelivery: latestDelivery ? toDeliveryPublic(latestDelivery) : null,
+    latestAppeal: toAppealPublic(latestAppeal),
   };
 }
 
@@ -280,6 +421,24 @@ function toDeliveryPublic(row: CertificateDeliveryRow): CertificateDeliveryPubli
     messagePreview: row.messagePreview,
     performedAt: row.performedAt.toISOString(),
   };
+}
+
+function toAppealPublic(row: CertificateDeliveryRow | null): CertificateAppealPublicDto | null {
+  if (!row) return null;
+  return {
+    channel: row.channel,
+    status: row.deliveryStatus,
+    notes: row.messagePreview,
+    performedAt: row.performedAt.toISOString(),
+  };
+}
+
+function isDeliveryChannel(channel: string): boolean {
+  return channel === 'PRINT' || channel === 'EMAIL' || channel === 'WHATSAPP';
+}
+
+function isAppealChannel(channel: string): boolean {
+  return channel === 'APPEAL' || channel === 'APPEAL_APPROVED' || channel === 'APPEAL_REJECTED';
 }
 
 function emptyToNull(value: string | undefined): string | null {

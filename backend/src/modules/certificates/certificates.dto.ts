@@ -21,3 +21,17 @@ export const RenewCertificateDto = z.object({
 });
 
 export type RenewCertificateDto = z.infer<typeof RenewCertificateDto>;
+
+export const AppealCertificateDto = z.object({
+  reason: z.string().trim().min(3).max(2000),
+});
+
+export type AppealCertificateDto = z.infer<typeof AppealCertificateDto>;
+
+export const ReviewCertificateAppealDto = z.object({
+  decision: z.enum(['APPROVE', 'REJECT']),
+  notes: z.string().trim().min(3).max(2000),
+  validityDays: z.coerce.number().int().min(1).max(3650).default(365),
+});
+
+export type ReviewCertificateAppealDto = z.infer<typeof ReviewCertificateAppealDto>;
