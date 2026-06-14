@@ -1,4 +1,5 @@
-import { ClipboardCheck, Download, FlaskConical, Search } from 'lucide-react';
+import Link from 'next/link';
+import { BadgeCheck, ClipboardCheck, Download, FlaskConical, Search, ShieldCheck, TestTube2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
@@ -36,9 +37,20 @@ type Screening = {
 
 type TestResult = 'NEGATIVE' | 'POSITIVE' | 'INDETERMINATE' | 'NOT_DONE';
 
-export default async function MedicalPage({ searchParams }: { searchParams?: { q?: string; medicalError?: string } }) {
+const STATUS_TABS: Array<{ label: string; value: StatusFilter }> = [
+  { label: 'All screenings', value: '' },
+  { label: 'Sample collected', value: 'SAMPLE_COLLECTED' },
+  { label: 'Result entered', value: 'RESULT_ENTERED' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Rejected', value: 'REJECTED' },
+];
+
+type StatusFilter = '' | Screening['status'];
+
+export default async function MedicalPage({ searchParams }: { searchParams?: { q?: string; status?: StatusFilter; medicalError?: string } }) {
   const actor = await readActorFromAccessToken();
   const q = searchParams?.q?.trim() ?? '';
+  const status = searchParams?.status ?? '';
   const medicalError = searchParams?.medicalError?.trim() ?? '';
   let ready: Registration[] = [];
   let screenings: Screening[] = [];
@@ -51,7 +63,7 @@ export default async function MedicalPage({ searchParams }: { searchParams?: { q
         { authenticated: true },
       ),
       apiFetch<{ items: Screening[] }>(
-        `/medical-screenings${q ? `?q=${encodeURIComponent(q)}` : ''}`,
+        `/medical-screenings${buildQuery({ q, status })}`,
         { authenticated: true },
       ),
     ]);
@@ -63,18 +75,20 @@ export default async function MedicalPage({ searchParams }: { searchParams?: { q
   }
 
   const screenedRegistrationIds = new Set(screenings.map((item) => item.handlerRegistrationId));
+  const readyForCollection = ready.filter((item) => !screenedRegistrationIds.has(item.id));
   const canCollect = actor?.permissions.includes('medical.record_sample') ?? false;
   const canEnter = actor?.permissions.includes('medical.enter_result') ?? false;
   const canReview = actor?.permissions.includes('medical.approve_result') ?? false;
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-ink-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <header className="rounded-sm border border-ink-200 bg-white p-5">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Phase 3</p>
-          <h1 className="mt-1 font-display text-4xl font-medium text-ink-900">Medical screening</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Medical officer workspace</p>
+          <h1 className="mt-2 font-display text-4xl font-medium text-ink-950">Medical screening</h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-600">
-            Medical officer workspace for Mantoux, Hepatitis B, HIV, and Widal test entry before certification.
+            Attend approved handlers, collect samples, record Mantoux, Hepatitis B, HIV, and Widal results, then approve fit handlers for certification.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -97,12 +111,40 @@ export default async function MedicalPage({ searchParams }: { searchParams?: { q
             </a>
           </Button>
         </div>
+        </div>
       </header>
 
-      <form action="/dashboard/medical" className="relative max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-        <Input name="q" defaultValue={q} className="pl-9" placeholder="Search by UID, name, phone, or category" />
-      </form>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric icon={ClipboardCheck} label="Ready" value={readyForCollection.length} detail="Awaiting sample collection" />
+        <Metric icon={TestTube2} label="In progress" value={screenings.filter((item) => item.status === 'SAMPLE_COLLECTED' || item.status === 'RESULT_ENTERED').length} detail="Samples or results pending" />
+        <Metric icon={ShieldCheck} label="Approved" value={screenings.filter((item) => item.status === 'APPROVED').length} detail="Fit for certification" />
+        <Metric icon={BadgeCheck} label="Rejected" value={screenings.filter((item) => item.status === 'REJECTED').length} detail="Not fit or rejected" />
+      </section>
+
+      <section className="rounded-sm border border-ink-200 bg-white p-4">
+        <form action="/dashboard/medical" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+            <Input name="q" defaultValue={q} className="pl-9" placeholder="Search by UID, full name, phone, business, or category" />
+            {status && <input type="hidden" name="status" value={status} />}
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit">Search</Button>
+            {(q || status) && (
+              <Button asChild type="button" variant="outline">
+                <Link href="/dashboard/medical">Clear</Link>
+              </Button>
+            )}
+          </div>
+        </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {STATUS_TABS.map((tab) => (
+            <Button key={tab.value || 'all'} asChild size="sm" variant={status === tab.value ? 'default' : 'outline'}>
+              <Link href={`/dashboard/medical${buildQuery({ q, status: tab.value })}`}>{tab.label}</Link>
+            </Button>
+          ))}
+        </div>
+      </section>
 
       {(loadError || medicalError) && (
         <div className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -110,19 +152,19 @@ export default async function MedicalPage({ searchParams }: { searchParams?: { q
         </div>
       )}
 
-      <section className="rounded-[8px] border border-ink-200 bg-white shadow-sm">
+      <section className="rounded-sm border border-ink-200 bg-white">
         <div className="flex items-center gap-3 border-b border-ink-100 p-5">
           <ClipboardCheck className="h-4 w-4 text-[#0f766e]" />
           <h2 className="text-base font-semibold text-ink-900">Ready for sample collection</h2>
         </div>
-        <div className="divide-y divide-ink-100">
-          {ready.filter((item) => !screenedRegistrationIds.has(item.id)).length === 0 && (
+        <div className="grid gap-3 p-5">
+          {readyForCollection.length === 0 && (
             <p className="p-5 text-sm text-ink-500">No approved handlers are waiting for medical screening.</p>
           )}
-          {ready.filter((item) => !screenedRegistrationIds.has(item.id)).map((item) => {
+          {readyForCollection.map((item) => {
             const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed handler';
             return (
-              <div key={item.id} className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
+              <div key={item.id} className="flex flex-col gap-4 rounded-sm border border-ink-100 bg-ink-50/40 p-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="font-medium text-ink-900">{name}</p>
                   <p className="font-mono text-xs text-ink-500">{item.uid}</p>
@@ -143,22 +185,26 @@ export default async function MedicalPage({ searchParams }: { searchParams?: { q
         </div>
       </section>
 
-      <section className="rounded-[8px] border border-ink-200 bg-white shadow-sm">
+      <section className="rounded-sm border border-ink-200 bg-white">
         <div className="flex items-center gap-3 border-b border-ink-100 p-5">
           <FlaskConical className="h-4 w-4 text-[#0f766e]" />
           <h2 className="text-base font-semibold text-ink-900">Screening queue</h2>
         </div>
-        <div className="divide-y divide-ink-100">
+        <div className="grid gap-4 p-5">
           {screenings.length === 0 && <p className="p-5 text-sm text-ink-500">No medical screenings yet.</p>}
           {screenings.map((screening) => (
-            <div key={screening.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
+            <div key={screening.id} className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm xl:grid-cols-[minmax(0,1fr)_minmax(300px,440px)]">
               <div>
-                <p className="font-medium text-ink-900">{screening.handlerName}</p>
-                <p className="font-mono text-xs text-ink-500">{screening.uid}</p>
-                <p className="mt-1 text-sm text-ink-600">{screening.tradeCategory || 'No category'}</p>
-                <span className="mt-3 inline-flex rounded-[8px] bg-[#0f766e]/10 px-2 py-1 text-xs font-medium text-[#0f766e]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-ink-900">{screening.handlerName}</p>
+                    <p className="font-mono text-xs text-ink-500">{screening.uid}</p>
+                    <p className="mt-1 text-sm text-ink-600">{screening.tradeCategory || 'No category'}</p>
+                  </div>
+                  <span className={`inline-flex rounded-sm px-2 py-1 text-xs font-medium ${statusTone(screening.status)}`}>
                   {displayStatus(screening.status)}
-                </span>
+                  </span>
+                </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <TestBadge label="Mantoux" value={displayTest(screening.mantouxResult)} detail={screening.mantouxIndurationMm !== null ? `${screening.mantouxIndurationMm} mm` : undefined} />
                   <TestBadge label="Hepatitis B" value={displayTest(screening.hepatitisBResult)} />
@@ -234,6 +280,44 @@ function displayStatus(status: Screening['status']): string {
   if (status === 'RESULT_ENTERED') return 'Result entered';
   if (status === 'APPROVED') return 'Approved';
   return 'Rejected';
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-sm border border-ink-200 bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{label}</p>
+        <Icon className="h-4 w-4 text-accent" />
+      </div>
+      <p className="mt-4 font-display text-4xl font-medium text-ink-950">{value}</p>
+      <p className="mt-1 text-xs text-ink-500">{detail}</p>
+    </div>
+  );
+}
+
+function statusTone(status: Screening['status']): string {
+  if (status === 'APPROVED') return 'bg-success/10 text-success';
+  if (status === 'REJECTED') return 'bg-danger/10 text-danger';
+  if (status === 'RESULT_ENTERED') return 'bg-warning/10 text-warning';
+  return 'bg-accent/10 text-accent';
+}
+
+function buildQuery({ q, status }: { q?: string; status?: StatusFilter }): string {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set('q', q.trim());
+  if (status) params.set('status', status);
+  const text = params.toString();
+  return text ? `?${text}` : '';
 }
 
 function ResultSelect({
