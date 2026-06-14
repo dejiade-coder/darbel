@@ -114,7 +114,21 @@ The full walkthrough is in [docs/setup-runbook.md](docs/setup-runbook.md). Short
    npx prisma migrate deploy
    ```
 
-5. Start backend and frontend in separate terminals:
+5. Start backend and frontend together from the repository root:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1 -Restart
+   ```
+
+   The script starts the NestJS API and Next.js app, waits for both health checks, and writes logs to `backend-live.log`, `backend-dev.err.log`, `frontend-live.log`, and `frontend-dev.err.log`.
+
+   To stop both local servers:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\dev-stop.ps1
+   ```
+
+   You can still start the services manually in separate terminals if you prefer:
 
    ```powershell
    cd backend
