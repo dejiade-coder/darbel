@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
-import { CurrentUser, Permissions, Public, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
+import { CurrentUser, Permissions, type AuthenticatedActor, type AuthenticatedRequest } from '../../common/decorators/auth.decorators';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CertificatesService } from './certificates.service';
 import { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
@@ -22,8 +22,9 @@ export class CertificatesController {
     return this.certificates.list(toContext(actor, req), q?.trim(), status?.trim());
   }
 
-  @Public()
+  @UseGuards(JwtAuthGuard, PermissionGuard)
   @Get('verify/:uid')
+  @Permissions('certificate.view')
   verify(@Param('uid') uid: string) {
     return this.certificates.verify(uid.toUpperCase());
   }

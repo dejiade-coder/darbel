@@ -3,9 +3,8 @@ import { headers } from 'next/headers';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
+import { apiFetch, ApiError } from '@/lib/api/server-client';
 import { PrintButton } from './print-button';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api/v1';
 
 export const metadata = { title: 'Print certificate' };
 
@@ -287,11 +286,14 @@ async function fetchTemplate(): Promise<CertificateTemplate> {
 
 async function fetchCertificate(uid: string): Promise<Verification | null> {
   try {
-    const res = await fetch(`${API_BASE}/verify/${encodeURIComponent(uid)}`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    return (await res.json()) as Verification;
-  } catch {
-    return null;
+    const result = await apiFetch<{ items: Verification[] }>(
+      `/certificates?q=${encodeURIComponent(uid)}`,
+      { authenticated: true },
+    );
+    return result.items.find((item) => item.uid.toUpperCase() === uid.toUpperCase()) ?? null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
   }
 }
 
