@@ -92,7 +92,6 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             >
               {result.handlerName}
             </p>
-            <p className="mt-4 font-mono text-sm text-ink-700">{result.uid}</p>
           </div>
           <div
             className="absolute flex items-end justify-between gap-6 text-ink-800"
@@ -112,7 +111,10 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                 <div className="shrink-0 bg-white p-1">
                   <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
-                <p className="max-w-28 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                <div className="max-w-32">
+                  <p className="font-mono text-xs text-ink-700">{result.uid}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                </div>
               </div>
             )}
           </div>
@@ -141,7 +143,6 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             >
               {result.handlerName}
             </p>
-            <p className="mt-4 font-mono text-sm text-ink-700">{result.uid}</p>
           </div>
           <div
             className="absolute flex items-end justify-between gap-6 bg-white/75 p-4 text-ink-800 print:bg-white/80"
@@ -161,7 +162,10 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                 <div className="shrink-0 bg-white p-1">
                   <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
-                <p className="max-w-28 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                <div className="max-w-32">
+                  <p className="font-mono text-xs text-ink-700">{result.uid}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                </div>
               </div>
             )}
           </div>
@@ -200,6 +204,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Officer scan only</p>
+                <p className="mt-2 font-mono text-sm text-ink-700">{result.uid}</p>
                 <div className="mt-3 inline-block bg-white p-2">
                   <QRCodeSVG value={officerScanUrl} size={92} level="M" includeMargin={false} />
                 </div>

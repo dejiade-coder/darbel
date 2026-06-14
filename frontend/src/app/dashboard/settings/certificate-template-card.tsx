@@ -246,7 +246,6 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                 >
                   Sample Handler Name
                 </p>
-                <p className="mt-1 font-mono text-[10px] text-ink-700">BBH-SAMPLE-1</p>
               </DraggableBlock>
               <DraggableBlock
                 label="Details"
@@ -271,7 +270,10 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                       <div className="shrink-0 bg-white p-1">
                         <QRCodeSVG value="https://darbel.example/dashboard/certificates/BBH-SAMPLE-1/scan" size={42} level="M" includeMargin={false} />
                       </div>
-                      <p className="max-w-16 text-[8px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                      <div className="max-w-20">
+                        <p className="font-mono text-[9px] text-ink-700">BBH-SAMPLE-1</p>
+                        <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                      </div>
                     </div>
                   )}
                 </div>
