@@ -652,8 +652,8 @@ const DEFAULT_MESSAGE_TEMPLATES: MessageTemplatesDto = {
   },
   certificateReady: {
     subject: 'Darbel certificate ready',
-    body: 'Hello {{handlerName}}, your compliance certificate is ready. Verify it here: {{verificationUrl}}',
-    whatsApp: 'Darbel certificate ready for {{handlerName}}. Verify: {{verificationUrl}}',
+    body: 'Hello {{handlerName}}, your compliance certificate is ready. Certificate UID: {{uid}}. Authorized officers can scan the barcode on the printed certificate to view handler details.',
+    whatsApp: 'Darbel certificate ready for {{handlerName}}. UID: {{uid}}. Officer barcode scan is required to reveal handler details.',
   },
   updatedAt: null,
 };
