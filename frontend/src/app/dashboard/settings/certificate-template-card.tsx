@@ -42,6 +42,9 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
   const [layout, setLayout] = useState<TemplateLayout>(normalizeLayout(initialTemplate?.layout ?? DEFAULT_LAYOUT));
   const fileRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const templateFileUrl = template
+    ? `/dashboard/settings/certificate-template/file?v=${encodeURIComponent(template.uploadedAt)}`
+    : '/dashboard/settings/certificate-template/file';
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
@@ -195,7 +198,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
           </Button>
           {template && (
             <Button asChild type="button" variant="outline">
-              <a href="/dashboard/settings/certificate-template/file" target="_blank">Preview</a>
+              <a href={templateFileUrl} target="_blank">Preview</a>
             </Button>
           )}
         </div>
@@ -212,14 +215,14 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
               ref={previewRef}
               className="relative aspect-[1.414/1] overflow-hidden rounded-sm border border-ink-200 bg-white shadow-inner"
               style={{
-                backgroundImage: template.mimeType.startsWith('image/') ? 'url(/dashboard/settings/certificate-template/file)' : undefined,
+                backgroundImage: template.mimeType.startsWith('image/') ? `url(${templateFileUrl})` : undefined,
                 backgroundPosition: 'center',
                 backgroundSize: 'cover',
               }}
             >
               {template.mimeType === 'application/pdf' && (
                 <iframe
-                  src="/dashboard/settings/certificate-template/file"
+                  src={templateFileUrl}
                   title="Certificate template preview"
                   className="absolute inset-0 h-full w-full border-0"
                 />

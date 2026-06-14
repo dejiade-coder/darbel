@@ -21,6 +21,7 @@ type Verification = {
 type CertificateTemplate = {
   mimeType: string;
   fileUrl: string;
+  uploadedAt?: string;
   isApproved?: boolean;
   layout?: CertificateTemplateLayout;
 } | null;
@@ -47,6 +48,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
   const protocol = host.startsWith('localhost') ? 'http' : 'https';
   const verifyUrl = `${protocol}://${host}/verify/${encodeURIComponent(uid)}`;
   const layout = normalizeLayout(template?.layout);
+  const templateFileUrl = buildTemplateFileUrl(template);
 
   return (
     <div className="min-h-screen bg-parchment px-6 py-8 print:bg-white print:p-0">
@@ -70,7 +72,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
         <main
           className="relative mx-auto min-h-[760px] max-w-5xl overflow-hidden bg-white shadow-sm print:min-h-screen print:max-w-none print:shadow-none"
           style={{
-            backgroundImage: `url(/dashboard/settings/certificate-template/file)`,
+            backgroundImage: `url(${templateFileUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -123,7 +125,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
       {result && template?.isApproved && template.mimeType === 'application/pdf' && (
         <main className="relative mx-auto min-h-[760px] max-w-5xl overflow-hidden bg-white shadow-sm print:min-h-screen print:max-w-none print:shadow-none">
           <iframe
-            src="/dashboard/settings/certificate-template/file"
+            src={templateFileUrl}
             title="Approved certificate template"
             className="absolute inset-0 h-full w-full border-0"
           />
@@ -254,6 +256,11 @@ function Fact({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-sm font-medium text-ink-900">{value}</p>
     </div>
   );
+}
+
+function buildTemplateFileUrl(template: CertificateTemplate): string {
+  const version = template?.uploadedAt ? `?v=${encodeURIComponent(template.uploadedAt)}` : '';
+  return `/dashboard/settings/certificate-template/file${version}`;
 }
 
 const DEFAULT_LAYOUT: CertificateTemplateLayout = {

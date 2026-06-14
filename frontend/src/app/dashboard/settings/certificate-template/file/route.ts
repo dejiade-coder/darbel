@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     headers: {
       'content-type': res.headers.get('content-type') ?? 'application/octet-stream',
       'content-disposition': res.headers.get('content-disposition') ?? 'inline',
+      'cache-control': 'no-store, max-age=0',
     },
   });
 }
