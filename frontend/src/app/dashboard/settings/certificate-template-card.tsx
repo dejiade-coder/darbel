@@ -269,12 +269,9 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                   {layout.showVerification && (
                     <div className="flex max-w-[48%] items-end gap-2 text-right">
                       <div className="shrink-0 bg-white p-1">
-                        <QRCodeSVG value="https://darbel.example/verify/BBH-SAMPLE-1" size={42} level="M" includeMargin={false} />
+                        <QRCodeSVG value="https://darbel.example/dashboard/certificates/BBH-SAMPLE-1/scan" size={42} level="M" includeMargin={false} />
                       </div>
-                      <div>
-                        <p className="text-[8px] uppercase tracking-[0.14em] text-ink-500">Verify</p>
-                        <p className="break-all font-mono text-[9px]">https://darbel.example/verify/BBH-SAMPLE-1</p>
-                      </div>
+                      <p className="max-w-16 text-[8px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
                     </div>
                   )}
                 </div>
@@ -320,7 +317,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
               <NudgePad title="Nudge details" onNudge={(dx, dy) => nudgeBlock('details', dx, dy)} />
             </div>
             <label className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-white px-3 py-2 text-sm">
-              <span className="font-medium text-ink-800">Show verification link on certificate</span>
+              <span className="font-medium text-ink-800">Show officer scan barcode on certificate</span>
               <input
                 type="checkbox"
                 checked={layout.showVerification}

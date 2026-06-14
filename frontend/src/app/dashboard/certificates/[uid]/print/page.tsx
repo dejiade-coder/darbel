@@ -46,7 +46,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
   const hdrs = await headers();
   const host = hdrs.get('host') ?? 'localhost:3000';
   const protocol = host.startsWith('localhost') ? 'http' : 'https';
-  const verifyUrl = `${protocol}://${host}/verify/${encodeURIComponent(uid)}`;
+  const officerScanUrl = `${protocol}://${host}/dashboard/certificates/${encodeURIComponent(uid)}/scan`;
   const layout = normalizeLayout(template?.layout);
   const templateFileUrl = buildTemplateFileUrl(template);
 
@@ -110,12 +110,9 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             {layout.showVerification && (
               <div className="flex max-w-sm items-end gap-3 text-right">
                 <div className="shrink-0 bg-white p-1">
-                  <QRCodeSVG value={verifyUrl} size={72} level="M" includeMargin={false} />
+                  <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
-                <div>
-                <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">Verify</p>
-                <p className="break-all font-mono text-xs">{verifyUrl}</p>
-                </div>
+                <p className="max-w-28 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
               </div>
             )}
           </div>
@@ -162,12 +159,9 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             {layout.showVerification && (
               <div className="flex max-w-sm items-end gap-3 text-right">
                 <div className="shrink-0 bg-white p-1">
-                  <QRCodeSVG value={verifyUrl} size={72} level="M" includeMargin={false} />
+                  <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
-                <div>
-                <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">Verify</p>
-                <p className="break-all font-mono text-xs">{verifyUrl}</p>
-                </div>
+                <p className="max-w-28 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
               </div>
             )}
           </div>
@@ -205,10 +199,9 @@ export default async function CertificatePrintPage({ params }: { params: Promise
 
             <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Public verification</p>
-                <p className="mt-2 break-all font-mono text-xs text-ink-700">{verifyUrl}</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Officer scan only</p>
                 <div className="mt-3 inline-block bg-white p-2">
-                  <QRCodeSVG value={verifyUrl} size={92} level="M" includeMargin={false} />
+                  <QRCodeSVG value={officerScanUrl} size={92} level="M" includeMargin={false} />
                 </div>
               </div>
               <div className="min-w-56 border-t border-ink-900 pt-3 text-center">
