@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { Mail, MessageCircle, Printer, RotateCcw, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -27,6 +27,10 @@ export function CertificateActions({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [mode, setMode] = useState<'renew' | 'revoke' | null>(null);
+  const [renewDays, setRenewDays] = useState('365');
+  const [revokeReason, setRevokeReason] = useState('');
+  const [formError, setFormError] = useState('');
   const printUrl = `/dashboard/certificates/${encodeURIComponent(item.uid)}/print`;
   const mailUrl = buildMailLink(item);
   const whatsAppUrl = buildWhatsAppLink(item);
@@ -48,45 +52,46 @@ export function CertificateActions({
         }
       } catch (error) {
         if (targetWindow) targetWindow.close();
-        alert(error instanceof Error ? error.message : 'Failed to record certificate delivery.');
+        setFormError(error instanceof Error ? error.message : 'Failed to record certificate delivery.');
       }
     });
   }
 
   function revokeCertificate() {
-    const reason = window.prompt(`Why is certificate ${item.uid} being revoked?`);
-    if (reason === null) return;
-    const trimmed = reason.trim();
+    const trimmed = revokeReason.trim();
     if (trimmed.length < 3) {
-      alert('Enter a revocation reason of at least 3 characters.');
+      setFormError('Enter a revocation reason of at least 3 characters.');
       return;
     }
 
+    setFormError('');
     startTransition(async () => {
       try {
         await revokeCertificateRequest(item.id, trimmed);
+        setMode(null);
+        setRevokeReason('');
         router.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to revoke certificate.');
+        setFormError(error instanceof Error ? error.message : 'Failed to revoke certificate.');
       }
     });
   }
 
   function renewCertificate() {
-    const raw = window.prompt(`Renew certificate ${item.uid} for how many days?`, '365');
-    if (raw === null) return;
-    const validityDays = Number(raw);
+    const validityDays = Number(renewDays);
     if (!Number.isInteger(validityDays) || validityDays < 1 || validityDays > 3650) {
-      alert('Enter a whole number between 1 and 3650 days.');
+      setFormError('Enter a whole number between 1 and 3650 days.');
       return;
     }
 
+    setFormError('');
     startTransition(async () => {
       try {
         await renewCertificateRequest(item.id, validityDays);
+        setMode(null);
         router.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to renew certificate.');
+        setFormError(error instanceof Error ? error.message : 'Failed to renew certificate.');
       }
     });
   }
@@ -131,7 +136,10 @@ export function CertificateActions({
           variant="outline"
           size="sm"
           disabled={isPending}
-          onClick={renewCertificate}
+          onClick={() => {
+            setMode('renew');
+            setFormError('');
+          }}
         >
           <RotateCcw className="mr-2 h-3.5 w-3.5" />
           Renew
@@ -143,11 +151,76 @@ export function CertificateActions({
           variant="destructive"
           size="sm"
           disabled={isPending}
-          onClick={revokeCertificate}
+          onClick={() => {
+            setMode('revoke');
+            setFormError('');
+          }}
         >
           <ShieldX className="mr-2 h-3.5 w-3.5" />
           Revoke
         </Button>
+      )}
+      {mode && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/40 px-4">
+          <div className="w-full max-w-md rounded-sm border border-ink-200 bg-white p-5 shadow-xl">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">
+                {mode === 'renew' ? 'Renew certificate' : 'Revoke certificate'}
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-medium text-ink-950">{item.uid}</h2>
+              <p className="mt-1 text-sm text-ink-600">{item.handlerName}</p>
+            </div>
+
+            {mode === 'renew' ? (
+              <label className="mt-5 grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-ink-500">Validity days</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={3650}
+                  value={renewDays}
+                  onChange={(event) => setRenewDays(event.target.value)}
+                  className="h-10 rounded-sm border border-ink-200 px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+                />
+              </label>
+            ) : (
+              <label className="mt-5 grid gap-2">
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-ink-500">Revocation reason</span>
+                <textarea
+                  rows={4}
+                  value={revokeReason}
+                  onChange={(event) => setRevokeReason(event.target.value)}
+                  className="rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+                  placeholder="Enter reason for revoking this certificate"
+                />
+              </label>
+            )}
+
+            {formError && <p className="mt-3 rounded-sm border border-danger/25 bg-danger/5 p-3 text-sm text-danger">{formError}</p>}
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => {
+                  setMode(null);
+                  setFormError('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant={mode === 'revoke' ? 'destructive' : 'default'}
+                disabled={isPending}
+                onClick={mode === 'renew' ? renewCertificate : revokeCertificate}
+              >
+                {isPending ? 'Saving...' : mode === 'renew' ? 'Renew certificate' : 'Revoke certificate'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
