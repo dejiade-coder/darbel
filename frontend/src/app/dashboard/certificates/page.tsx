@@ -23,12 +23,14 @@ type Certificate = {
     channel: string;
     deliveryStatus: string;
     recipient: string | null;
+    messagePreview: string | null;
     performedAt: string;
   } | null;
 };
 
-export default async function CertificatesPage({ searchParams }: { searchParams?: { q?: string } }) {
-  const q = searchParams?.q?.trim() ?? '';
+export default async function CertificatesPage({ searchParams }: { searchParams?: Promise<{ q?: string }> }) {
+  const params = await searchParams;
+  const q = params?.q?.trim() ?? '';
   let items: Certificate[] = [];
   let loadError = '';
   const hdrs = await headers();
@@ -101,10 +103,17 @@ function formatDate(value: string): string {
 
 function formatDelivery(delivery: Certificate['latestDelivery']): string {
   if (!delivery) return 'No delivery recorded';
-  return `${formatChannel(delivery.channel)} recorded ${formatDate(delivery.performedAt)}`;
+  return `${formatChannel(delivery.channel)} ${formatDeliveryStatus(delivery.deliveryStatus)} ${formatDate(delivery.performedAt)}`;
 }
 
 function formatChannel(channel: string): string {
   if (channel === 'WHATSAPP') return 'WhatsApp';
   return channel.charAt(0) + channel.slice(1).toLowerCase();
+}
+
+function formatDeliveryStatus(status: string): string {
+  if (status === 'QUEUED') return 'queued';
+  if (status === 'NEEDS_PROVIDER') return 'needs provider setup';
+  if (status === 'MISSING_RECIPIENT') return 'missing recipient';
+  return 'recorded';
 }

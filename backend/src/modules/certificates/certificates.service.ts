@@ -4,6 +4,9 @@ import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
 import type { RecordCertificateDeliveryDto, RenewCertificateDto, RevokeCertificateDto } from './certificates.dto';
 
+const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
+const MESSAGE_TEMPLATES_KEY = 'message_templates';
+
 export interface CertificatePublicDto {
   id: string;
   uid: string;
@@ -25,6 +28,7 @@ export interface CertificateDeliveryPublicDto {
   channel: string;
   deliveryStatus: string;
   recipient: string | null;
+  messagePreview: string | null;
   performedAt: string;
 }
 
@@ -100,19 +104,53 @@ export class CertificatesService {
     return this.prisma.runWithContext(ctx, async (tx) => {
       const certificate = await tx.certificate.findUnique({
         where: { id: certificateId },
-        select: { id: true, tenantId: true },
+        include: { handlerRegistration: true },
       });
       if (!certificate) throw new ResourceNotFoundException('Certificate', certificateId);
+      const [providersSetting, templatesSetting] = await Promise.all([
+        tx.tenantSetting.findUnique({
+          where: {
+            tenantId_settingKey: {
+              tenantId: certificate.tenantId,
+              settingKey: NOTIFICATION_PROVIDERS_KEY,
+            },
+          },
+        }),
+        tx.tenantSetting.findUnique({
+          where: {
+            tenantId_settingKey: {
+              tenantId: certificate.tenantId,
+              settingKey: MESSAGE_TEMPLATES_KEY,
+            },
+          },
+        }),
+      ]);
+      const recipient = emptyToNull(dto.recipient);
+      const providers = normalizeNotificationProviders(providersSetting?.settingValue);
+      const templates = normalizeMessageTemplates(templatesSetting?.settingValue);
+      const handlerName =
+        [certificate.handlerRegistration.firstName, certificate.handlerRegistration.lastName]
+          .filter(Boolean)
+          .join(' ') || 'Unnamed handler';
+      const verificationUrl = emptyToNull(dto.verificationUrl);
+      const rendered = renderCertificateReadyTemplate(templates.certificateReady, {
+        handlerName,
+        uid: certificate.uid,
+        verificationUrl: verificationUrl ?? '',
+      });
+      const notification = buildNotificationMetadata(dto.channel, recipient, providers, rendered, verificationUrl);
 
       const delivery = await tx.certificateDelivery.create({
         data: {
           tenantId: certificate.tenantId,
           certificateId: certificate.id,
           channel: dto.channel,
-          recipient: emptyToNull(dto.recipient),
+          deliveryStatus: notification.status,
+          recipient,
           deliveryUrl: emptyToNull(dto.deliveryUrl),
-          messagePreview: emptyToNull(dto.messagePreview),
+          messagePreview: emptyToNull(dto.messagePreview) ?? notification.preview,
           performedBy: ctx.userId,
+          metadata: notification.metadata,
         },
       });
 
@@ -230,6 +268,7 @@ function toDeliveryPublic(row: CertificateDeliveryRow): CertificateDeliveryPubli
     channel: row.channel,
     deliveryStatus: row.deliveryStatus,
     recipient: row.recipient,
+    messagePreview: row.messagePreview,
     performedAt: row.performedAt.toISOString(),
   };
 }
@@ -269,5 +308,164 @@ type CertificateDeliveryRow = {
   channel: string;
   deliveryStatus: string;
   recipient: string | null;
+  messagePreview: string | null;
   performedAt: Date;
+};
+
+type StoredNotificationProviders = {
+  emailEnabled: boolean;
+  smtpHost: string | null;
+  smtpPassword?: string | null;
+  emailFromAddress: string | null;
+  whatsAppEnabled: boolean;
+  whatsAppPhoneNumberId: string | null;
+  whatsAppAccessToken?: string | null;
+};
+
+type MessageTemplate = {
+  subject: string;
+  body: string;
+  whatsApp: string;
+};
+
+type StoredMessageTemplates = {
+  certificateReady: MessageTemplate;
+};
+
+type RenderedTemplate = {
+  subject: string;
+  body: string;
+  whatsApp: string;
+};
+
+function normalizeNotificationProviders(value: unknown): StoredNotificationProviders {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<StoredNotificationProviders>;
+  return {
+    emailEnabled: raw.emailEnabled ?? false,
+    smtpHost: raw.smtpHost ?? null,
+    smtpPassword: raw.smtpPassword ?? null,
+    emailFromAddress: raw.emailFromAddress ?? null,
+    whatsAppEnabled: raw.whatsAppEnabled ?? false,
+    whatsAppPhoneNumberId: raw.whatsAppPhoneNumberId ?? null,
+    whatsAppAccessToken: raw.whatsAppAccessToken ?? null,
+  };
+}
+
+function normalizeMessageTemplates(value: unknown): StoredMessageTemplates {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<StoredMessageTemplates>;
+  return {
+    certificateReady: normalizeMessageTemplate(raw.certificateReady, DEFAULT_CERTIFICATE_READY_TEMPLATE),
+  };
+}
+
+function normalizeMessageTemplate(value: Partial<MessageTemplate> | undefined, fallback: MessageTemplate): MessageTemplate {
+  return {
+    subject: value?.subject?.trim() || fallback.subject,
+    body: value?.body?.trim() || fallback.body,
+    whatsApp: value?.whatsApp?.trim() || fallback.whatsApp,
+  };
+}
+
+function renderCertificateReadyTemplate(
+  template: MessageTemplate,
+  tokens: { handlerName: string; uid: string; verificationUrl: string },
+): RenderedTemplate {
+  return {
+    subject: renderTokens(template.subject, tokens),
+    body: renderTokens(template.body, tokens),
+    whatsApp: renderTokens(template.whatsApp, tokens),
+  };
+}
+
+function renderTokens(value: string, tokens: { handlerName: string; uid: string; verificationUrl: string }): string {
+  return value
+    .replaceAll('{{handlerName}}', tokens.handlerName)
+    .replaceAll('{{uid}}', tokens.uid)
+    .replaceAll('{{verificationUrl}}', tokens.verificationUrl);
+}
+
+function buildNotificationMetadata(
+  channel: string,
+  recipient: string | null,
+  providers: StoredNotificationProviders,
+  rendered: RenderedTemplate,
+  verificationUrl: string | null,
+): { status: string; preview: string; metadata: Prisma.InputJsonObject } {
+  if (channel === 'PRINT') {
+    return {
+      status: 'RECORDED',
+      preview: rendered.body,
+      metadata: {
+        notification: {
+          status: 'RECORDED',
+          reason: 'Printed certificate delivery recorded.',
+          verificationUrl,
+          renderedAt: new Date().toISOString(),
+        },
+      },
+    };
+  }
+
+  if (!recipient) {
+    return notificationResult('MISSING_RECIPIENT', 'Applicant recipient is missing.', channel, rendered, verificationUrl);
+  }
+
+  if (channel === 'EMAIL') {
+    const configured = Boolean(
+      providers.emailEnabled &&
+        providers.smtpHost &&
+        providers.emailFromAddress &&
+        providers.smtpPassword,
+    );
+    return notificationResult(
+      configured ? 'QUEUED' : 'NEEDS_PROVIDER',
+      configured ? 'Email provider is configured; ready for SMTP delivery.' : 'Email provider settings are incomplete.',
+      channel,
+      rendered,
+      verificationUrl,
+    );
+  }
+
+  const configured = Boolean(
+    providers.whatsAppEnabled &&
+      providers.whatsAppPhoneNumberId &&
+      providers.whatsAppAccessToken,
+  );
+  return notificationResult(
+    configured ? 'QUEUED' : 'NEEDS_PROVIDER',
+    configured ? 'WhatsApp provider is configured; ready for Business API delivery.' : 'WhatsApp provider settings are incomplete.',
+    channel,
+    rendered,
+    verificationUrl,
+  );
+}
+
+function notificationResult(
+  status: string,
+  reason: string,
+  channel: string,
+  rendered: RenderedTemplate,
+  verificationUrl: string | null,
+): { status: string; preview: string; metadata: Prisma.InputJsonObject } {
+  return {
+    status,
+    preview: channel === 'WHATSAPP' ? rendered.whatsApp : rendered.body,
+    metadata: {
+      notification: {
+        status,
+        reason,
+        subject: rendered.subject,
+        body: rendered.body,
+        whatsApp: rendered.whatsApp,
+        verificationUrl,
+        renderedAt: new Date().toISOString(),
+      },
+    },
+  };
+}
+
+const DEFAULT_CERTIFICATE_READY_TEMPLATE: MessageTemplate = {
+  subject: 'Darbel certificate ready',
+  body: 'Hello {{handlerName}}, your compliance certificate is ready. Verify it here: {{verificationUrl}}',
+  whatsApp: 'Darbel certificate ready for {{handlerName}}. Verify: {{verificationUrl}}',
 };

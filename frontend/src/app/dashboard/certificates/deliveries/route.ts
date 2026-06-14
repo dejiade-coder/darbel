@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     channel?: string;
     recipient?: string | null;
     deliveryUrl?: string | null;
+    verificationUrl?: string | null;
     messagePreview?: string | null;
   };
 
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
         channel: body.channel,
         recipient: body.recipient ?? '',
         deliveryUrl: body.deliveryUrl ?? '',
+        verificationUrl: body.verificationUrl ?? '',
         messagePreview: body.messagePreview ?? '',
       },
     });

@@ -30,6 +30,7 @@ export function CertificateActions({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const printUrl = `/dashboard/certificates/${encodeURIComponent(item.uid)}/print`;
+  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
   const mailUrl = buildMailLink(item, origin);
   const whatsAppUrl = buildWhatsAppLink(item, origin);
 
@@ -37,7 +38,7 @@ export function CertificateActions({
     const targetWindow = mode === 'new-tab' ? window.open('about:blank', '_blank') : null;
     startTransition(async () => {
       try {
-        await recordDelivery(item, channel, url);
+        await recordDelivery(item, channel, url, verifyUrl);
         router.refresh();
         if (mode === 'same-tab') {
           router.push(url);
@@ -161,7 +162,12 @@ export function CertificateActions({
   );
 }
 
-async function recordDelivery(item: Certificate, channel: DeliveryChannel, deliveryUrl: string): Promise<void> {
+async function recordDelivery(
+  item: Certificate,
+  channel: DeliveryChannel,
+  deliveryUrl: string,
+  verificationUrl: string,
+): Promise<void> {
   const res = await fetch('/dashboard/certificates/deliveries', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -170,6 +176,7 @@ async function recordDelivery(item: Certificate, channel: DeliveryChannel, deliv
       channel,
       recipient: channel === 'EMAIL' ? item.handlerEmail : channel === 'WHATSAPP' ? item.handlerPhone : null,
       deliveryUrl,
+      verificationUrl,
       messagePreview: buildMessagePreview(item, channel),
     }),
   });
