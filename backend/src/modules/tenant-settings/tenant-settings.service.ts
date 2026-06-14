@@ -81,6 +81,15 @@ export interface CertificateTemplateLayout {
   signatureTopPercent: number;
   signatureWidthPercent: number;
   signatureScale: number;
+  showName: boolean;
+  showTradeCategory: boolean;
+  showIssuedDate: boolean;
+  showExpiryDate: boolean;
+  showUid: boolean;
+  showOfficerScanLabel: boolean;
+  showStatus: boolean;
+  showSignatures: boolean;
+  showSignatureLabels: boolean;
   showVerification: boolean;
 }
 
@@ -438,6 +447,15 @@ const DEFAULT_LAYOUT: CertificateTemplateLayout = {
   signatureTopPercent: 66,
   signatureWidthPercent: 64,
   signatureScale: 100,
+  showName: true,
+  showTradeCategory: true,
+  showIssuedDate: true,
+  showExpiryDate: true,
+  showUid: true,
+  showOfficerScanLabel: true,
+  showStatus: true,
+  showSignatures: true,
+  showSignatureLabels: true,
   showVerification: true,
 };
 
@@ -479,6 +497,15 @@ function normalizeLayout(layout: Partial<CertificateTemplateLayout> | undefined)
     signatureTopPercent: clampNumber(layout?.signatureTopPercent, 45, 88, DEFAULT_LAYOUT.signatureTopPercent),
     signatureWidthPercent,
     signatureScale: clampNumber(layout?.signatureScale, 70, 130, DEFAULT_LAYOUT.signatureScale),
+    showName: layout?.showName ?? DEFAULT_LAYOUT.showName,
+    showTradeCategory: layout?.showTradeCategory ?? DEFAULT_LAYOUT.showTradeCategory,
+    showIssuedDate: layout?.showIssuedDate ?? DEFAULT_LAYOUT.showIssuedDate,
+    showExpiryDate: layout?.showExpiryDate ?? DEFAULT_LAYOUT.showExpiryDate,
+    showUid: layout?.showUid ?? DEFAULT_LAYOUT.showUid,
+    showOfficerScanLabel: layout?.showOfficerScanLabel ?? DEFAULT_LAYOUT.showOfficerScanLabel,
+    showStatus: layout?.showStatus ?? DEFAULT_LAYOUT.showStatus,
+    showSignatures: layout?.showSignatures ?? DEFAULT_LAYOUT.showSignatures,
+    showSignatureLabels: layout?.showSignatureLabels ?? DEFAULT_LAYOUT.showSignatureLabels,
     showVerification: layout?.showVerification ?? DEFAULT_LAYOUT.showVerification,
   };
 }

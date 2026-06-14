@@ -56,6 +56,15 @@ type CertificateTemplateLayout = {
   signatureTopPercent: number;
   signatureWidthPercent: number;
   signatureScale: number;
+  showName: boolean;
+  showTradeCategory: boolean;
+  showIssuedDate: boolean;
+  showExpiryDate: boolean;
+  showUid: boolean;
+  showOfficerScanLabel: boolean;
+  showStatus: boolean;
+  showSignatures: boolean;
+  showSignatureLabels: boolean;
   showVerification: boolean;
 };
 
@@ -105,12 +114,14 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               top: `${layout.nameTopPercent}%`,
             }}
           >
-            <p
-              className="font-display font-medium leading-tight text-ink-950"
-              style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
-            >
-              {result.handlerName}
-            </p>
+            {layout.showName && (
+              <p
+                className="font-display font-medium leading-tight text-ink-950"
+                style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
+              >
+                {result.handlerName}
+              </p>
+            )}
           </div>
           <div
             className="absolute flex items-end justify-between gap-6 text-ink-800"
@@ -122,8 +133,14 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             }}
           >
             <div>
-              <p>{result.tradeCategory || 'Not listed'}</p>
-              <p>Issued {formatDate(result.issuedAt)} - Expires {formatDate(result.expiresAt)}</p>
+              {layout.showTradeCategory && <p>{result.tradeCategory || 'Not listed'}</p>}
+              {(layout.showIssuedDate || layout.showExpiryDate) && (
+                <p>
+                  {layout.showIssuedDate && `Issued ${formatDate(result.issuedAt)}`}
+                  {layout.showIssuedDate && layout.showExpiryDate && ' - '}
+                  {layout.showExpiryDate && `Expires ${formatDate(result.expiresAt)}`}
+                </p>
+              )}
             </div>
             {layout.showVerification && (
               <div className="flex max-w-sm items-end gap-3 text-right">
@@ -131,13 +148,13 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                   <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
                 <div className="max-w-32">
-                  <p className="font-mono text-xs text-ink-700">{result.uid}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                  {layout.showUid && <p className="font-mono text-xs text-ink-700">{result.uid}</p>}
+                  {layout.showOfficerScanLabel && <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
                 </div>
               </div>
             )}
           </div>
-          <SignatureOverlay layout={layout} signatures={signatures} />
+          {layout.showSignatures && <SignatureOverlay layout={layout} signatures={signatures} />}
         </main>
       )}
 
@@ -156,12 +173,14 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               top: `${layout.nameTopPercent}%`,
             }}
           >
-            <p
-              className="font-display font-medium leading-tight text-ink-950"
-              style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
-            >
-              {result.handlerName}
-            </p>
+            {layout.showName && (
+              <p
+                className="font-display font-medium leading-tight text-ink-950"
+                style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
+              >
+                {result.handlerName}
+              </p>
+            )}
           </div>
           <div
             className="absolute flex items-end justify-between gap-6 bg-white/75 p-4 text-ink-800 print:bg-white/80"
@@ -173,8 +192,14 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             }}
           >
             <div>
-              <p>{result.tradeCategory || 'Not listed'}</p>
-              <p>Issued {formatDate(result.issuedAt)} - Expires {formatDate(result.expiresAt)}</p>
+              {layout.showTradeCategory && <p>{result.tradeCategory || 'Not listed'}</p>}
+              {(layout.showIssuedDate || layout.showExpiryDate) && (
+                <p>
+                  {layout.showIssuedDate && `Issued ${formatDate(result.issuedAt)}`}
+                  {layout.showIssuedDate && layout.showExpiryDate && ' - '}
+                  {layout.showExpiryDate && `Expires ${formatDate(result.expiresAt)}`}
+                </p>
+              )}
             </div>
             {layout.showVerification && (
               <div className="flex max-w-sm items-end gap-3 text-right">
@@ -182,13 +207,13 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                   <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
                 </div>
                 <div className="max-w-32">
-                  <p className="font-mono text-xs text-ink-700">{result.uid}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                  {layout.showUid && <p className="font-mono text-xs text-ink-700">{result.uid}</p>}
+                  {layout.showOfficerScanLabel && <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
                 </div>
               </div>
             )}
           </div>
-          <SignatureOverlay layout={layout} signatures={signatures} panel />
+          {layout.showSignatures && <SignatureOverlay layout={layout} signatures={signatures} panel />}
         </main>
       )}
 
@@ -202,33 +227,35 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               </div>
               <div className="text-right">
                 <ShieldCheck className="ml-auto h-10 w-10 text-success" />
-                <p className="mt-3 font-mono text-sm text-ink-700">{result.uid}</p>
+                {layout.showUid && <p className="mt-3 font-mono text-sm text-ink-700">{result.uid}</p>}
               </div>
             </div>
 
             <div className="py-12 text-center">
-              <p className="font-display text-6xl font-medium text-ink-950">{result.handlerName}</p>
+              {layout.showName && <p className="font-display text-6xl font-medium text-ink-950">{result.handlerName}</p>}
               <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-ink-700">
                 has completed the required registration, payment confirmation, and medical screening workflow for food handler compliance.
               </p>
             </div>
 
             <div className="grid gap-4 border-y border-ink-200 py-6 md:grid-cols-4">
-              <Fact label="Trade category" value={result.tradeCategory || 'Not listed'} />
-              <Fact label="Status" value={result.status} />
-              <Fact label="Issued" value={formatDate(result.issuedAt)} />
-              <Fact label="Expires" value={formatDate(result.expiresAt)} />
+              {layout.showTradeCategory && <Fact label="Trade category" value={result.tradeCategory || 'Not listed'} />}
+              {layout.showStatus && <Fact label="Status" value={result.status} />}
+              {layout.showIssuedDate && <Fact label="Issued" value={formatDate(result.issuedAt)} />}
+              {layout.showExpiryDate && <Fact label="Expires" value={formatDate(result.expiresAt)} />}
             </div>
 
-            <SignatureRow signatures={signatures} />
+            {layout.showSignatures && <SignatureRow signatures={signatures} showLabels={layout.showSignatureLabels} />}
 
             <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Officer scan only</p>
-                <p className="mt-2 font-mono text-sm text-ink-700">{result.uid}</p>
-                <div className="mt-3 inline-block bg-white p-2">
-                  <QRCodeSVG value={officerScanUrl} size={92} level="M" includeMargin={false} />
-                </div>
+                {layout.showOfficerScanLabel && <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Officer scan only</p>}
+                {layout.showUid && <p className="mt-2 font-mono text-sm text-ink-700">{result.uid}</p>}
+                {layout.showVerification && (
+                  <div className="mt-3 inline-block bg-white p-2">
+                    <QRCodeSVG value={officerScanUrl} size={92} level="M" includeMargin={false} />
+                  </div>
+                )}
               </div>
               <div className="min-w-56 border-t border-ink-900 pt-3 text-center">
                 <p className="text-sm font-medium text-ink-900">Authorized compliance officer</p>
@@ -297,18 +324,18 @@ function SignatureOverlay({
         fontSize: `${0.875 * (layout.signatureScale / 100)}rem`,
       }}
     >
-      <PrintedSignature slot="hod" signature={signatures.hod} />
-      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} />
+      <PrintedSignature slot="hod" signature={signatures.hod} showLabel={layout.showSignatureLabels} />
+      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} showLabel={layout.showSignatureLabels} />
     </div>
   );
 }
 
-function SignatureRow({ signatures }: { signatures: CertificateTemplateSignatures }) {
+function SignatureRow({ signatures, showLabels }: { signatures: CertificateTemplateSignatures; showLabels: boolean }) {
   if (!signatures.hod && !signatures.deputyHod) return null;
   return (
     <div className="mt-8 grid gap-10 text-center md:grid-cols-2">
-      <PrintedSignature slot="hod" signature={signatures.hod} />
-      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} />
+      <PrintedSignature slot="hod" signature={signatures.hod} showLabel={showLabels} />
+      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} showLabel={showLabels} />
     </div>
   );
 }
@@ -316,9 +343,11 @@ function SignatureRow({ signatures }: { signatures: CertificateTemplateSignature
 function PrintedSignature({
   slot,
   signature,
+  showLabel,
 }: {
   slot: keyof CertificateTemplateSignatures;
   signature: CertificateTemplateSignature | null;
+  showLabel: boolean;
 }) {
   const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
   return (
@@ -332,9 +361,11 @@ function PrintedSignature({
           />
         )}
       </div>
-      <div className="mt-2 border-t border-ink-900 pt-2">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
-      </div>
+      {showLabel && (
+        <div className="mt-2 border-t border-ink-900 pt-2">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -359,6 +390,15 @@ const DEFAULT_LAYOUT: CertificateTemplateLayout = {
   signatureTopPercent: 66,
   signatureWidthPercent: 64,
   signatureScale: 100,
+  showName: true,
+  showTradeCategory: true,
+  showIssuedDate: true,
+  showExpiryDate: true,
+  showUid: true,
+  showOfficerScanLabel: true,
+  showStatus: true,
+  showSignatures: true,
+  showSignatureLabels: true,
   showVerification: true,
 };
 
@@ -381,6 +421,15 @@ function normalizeLayout(layout: Partial<CertificateTemplateLayout> | undefined)
     signatureTopPercent: layout?.signatureTopPercent ?? DEFAULT_LAYOUT.signatureTopPercent,
     signatureWidthPercent: layout?.signatureWidthPercent ?? DEFAULT_LAYOUT.signatureWidthPercent,
     signatureScale: layout?.signatureScale ?? DEFAULT_LAYOUT.signatureScale,
+    showName: layout?.showName ?? DEFAULT_LAYOUT.showName,
+    showTradeCategory: layout?.showTradeCategory ?? DEFAULT_LAYOUT.showTradeCategory,
+    showIssuedDate: layout?.showIssuedDate ?? DEFAULT_LAYOUT.showIssuedDate,
+    showExpiryDate: layout?.showExpiryDate ?? DEFAULT_LAYOUT.showExpiryDate,
+    showUid: layout?.showUid ?? DEFAULT_LAYOUT.showUid,
+    showOfficerScanLabel: layout?.showOfficerScanLabel ?? DEFAULT_LAYOUT.showOfficerScanLabel,
+    showStatus: layout?.showStatus ?? DEFAULT_LAYOUT.showStatus,
+    showSignatures: layout?.showSignatures ?? DEFAULT_LAYOUT.showSignatures,
+    showSignatureLabels: layout?.showSignatureLabels ?? DEFAULT_LAYOUT.showSignatureLabels,
     showVerification: layout?.showVerification ?? DEFAULT_LAYOUT.showVerification,
   };
 }

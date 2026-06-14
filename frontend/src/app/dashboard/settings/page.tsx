@@ -36,6 +36,15 @@ type CertificateTemplate = {
     signatureTopPercent: number;
     signatureWidthPercent: number;
     signatureScale: number;
+    showName: boolean;
+    showTradeCategory: boolean;
+    showIssuedDate: boolean;
+    showExpiryDate: boolean;
+    showUid: boolean;
+    showOfficerScanLabel: boolean;
+    showStatus: boolean;
+    showSignatures: boolean;
+    showSignatureLabels: boolean;
     showVerification: boolean;
   };
   signatures?: {

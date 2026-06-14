@@ -48,6 +48,15 @@ type TemplateLayout = {
   signatureTopPercent: number;
   signatureWidthPercent: number;
   signatureScale: number;
+  showName: boolean;
+  showTradeCategory: boolean;
+  showIssuedDate: boolean;
+  showExpiryDate: boolean;
+  showUid: boolean;
+  showOfficerScanLabel: boolean;
+  showStatus: boolean;
+  showSignatures: boolean;
+  showSignatureLabels: boolean;
   showVerification: boolean;
 };
 
@@ -328,12 +337,14 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                 onPointerDown={startDrag('name')}
                 onPointerMove={continueDrag('name')}
               >
-                <p
-                  className="truncate font-display font-medium leading-tight text-ink-950"
-                  style={{ fontSize: `${1.8 * (layout.nameScale / 100)}rem` }}
-                >
-                  Sample Handler Name
-                </p>
+                {layout.showName && (
+                  <p
+                    className="truncate font-display font-medium leading-tight text-ink-950"
+                    style={{ fontSize: `${1.8 * (layout.nameScale / 100)}rem` }}
+                  >
+                    Sample Handler Name
+                  </p>
+                )}
               </DraggableBlock>
               <DraggableBlock
                 label="Details"
@@ -350,8 +361,14 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                   style={{ fontSize: `${0.72 * (layout.detailScale / 100)}rem` }}
                 >
                   <div>
-                    <p>Food Vendor</p>
-                    <p>Issued 12 June 2026 - Expires 12 June 2027</p>
+                    {layout.showTradeCategory && <p>Food Vendor</p>}
+                    {(layout.showIssuedDate || layout.showExpiryDate) && (
+                      <p>
+                        {layout.showIssuedDate && 'Issued 12 June 2026'}
+                        {layout.showIssuedDate && layout.showExpiryDate && ' - '}
+                        {layout.showExpiryDate && 'Expires 12 June 2027'}
+                      </p>
+                    )}
                   </div>
                   {layout.showVerification && (
                     <div className="flex max-w-[48%] items-end gap-2 text-right">
@@ -359,32 +376,34 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                         <QRCodeSVG value="https://darbel.example/dashboard/certificates/BBH-SAMPLE-1/scan" size={42} level="M" includeMargin={false} />
                       </div>
                       <div className="max-w-20">
-                        <p className="font-mono text-[9px] text-ink-700">BBH-SAMPLE-1</p>
-                        <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>
+                        {layout.showUid && <p className="font-mono text-[9px] text-ink-700">BBH-SAMPLE-1</p>}
+                        {layout.showOfficerScanLabel && <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
                       </div>
                     </div>
                   )}
                 </div>
               </DraggableBlock>
-              <DraggableBlock
-                label="Signatures"
-                className="bg-white/70"
-                style={{
-                  left: `${layout.signatureLeftPercent}%`,
-                  top: `${layout.signatureTopPercent}%`,
-                  width: `${layout.signatureWidthPercent}%`,
-                }}
-                onPointerDown={startDrag('signatures')}
-                onPointerMove={continueDrag('signatures')}
-              >
-                <div
-                  className="grid grid-cols-2 gap-4 text-center text-ink-900"
-                  style={{ fontSize: `${0.72 * (layout.signatureScale / 100)}rem` }}
+              {layout.showSignatures && (
+                <DraggableBlock
+                  label="Signatures"
+                  className="bg-white/70"
+                  style={{
+                    left: `${layout.signatureLeftPercent}%`,
+                    top: `${layout.signatureTopPercent}%`,
+                    width: `${layout.signatureWidthPercent}%`,
+                  }}
+                  onPointerDown={startDrag('signatures')}
+                  onPointerMove={continueDrag('signatures')}
                 >
-                  <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} />
-                  <SignaturePreview slot="deputyHod" signature={template.signatures?.deputyHod ?? null} />
-                </div>
-              </DraggableBlock>
+                  <div
+                    className="grid grid-cols-2 gap-4 text-center text-ink-900"
+                    style={{ fontSize: `${0.72 * (layout.signatureScale / 100)}rem` }}
+                  >
+                    <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} showLabel={layout.showSignatureLabels} />
+                    <SignaturePreview slot="deputyHod" signature={template.signatures?.deputyHod ?? null} showLabel={layout.showSignatureLabels} />
+                  </div>
+                </DraggableBlock>
+              )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -442,15 +461,18 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
               <NudgePad title="Nudge details" onNudge={(dx, dy) => nudgeBlock('details', dx, dy)} />
               <NudgePad title="Nudge signatures" onNudge={(dx, dy) => nudgeBlock('signatures', dx, dy)} />
             </div>
-            <label className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-white px-3 py-2 text-sm">
-              <span className="font-medium text-ink-800">Show officer scan barcode on certificate</span>
-              <input
-                type="checkbox"
-                checked={layout.showVerification}
-                onChange={(event) => updateLayout('showVerification', event.target.checked)}
-                className="h-4 w-4 accent-[hsl(var(--primary))]"
-              />
-            </label>
+            <div className="grid gap-2 rounded-sm border border-ink-100 bg-white p-3 md:grid-cols-2">
+              <VisibilityToggle label="Handler name" checked={layout.showName} onChange={(checked) => updateLayout('showName', checked)} />
+              <VisibilityToggle label="Trade category" checked={layout.showTradeCategory} onChange={(checked) => updateLayout('showTradeCategory', checked)} />
+              <VisibilityToggle label="Issued date" checked={layout.showIssuedDate} onChange={(checked) => updateLayout('showIssuedDate', checked)} />
+              <VisibilityToggle label="Expiry date" checked={layout.showExpiryDate} onChange={(checked) => updateLayout('showExpiryDate', checked)} />
+              <VisibilityToggle label="UID text" checked={layout.showUid} onChange={(checked) => updateLayout('showUid', checked)} />
+              <VisibilityToggle label="Officer scan label" checked={layout.showOfficerScanLabel} onChange={(checked) => updateLayout('showOfficerScanLabel', checked)} />
+              <VisibilityToggle label="Officer scan barcode" checked={layout.showVerification} onChange={(checked) => updateLayout('showVerification', checked)} />
+              <VisibilityToggle label="Status text" checked={layout.showStatus} onChange={(checked) => updateLayout('showStatus', checked)} />
+              <VisibilityToggle label="Signatures" checked={layout.showSignatures} onChange={(checked) => updateLayout('showSignatures', checked)} />
+              <VisibilityToggle label="Signature labels" checked={layout.showSignatureLabels} onChange={(checked) => updateLayout('showSignatureLabels', checked)} />
+            </div>
             <div className="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="outline" onClick={resetLayout}>
                 <RotateCcw className="mr-2 h-4 w-4" />
@@ -482,6 +504,15 @@ const DEFAULT_LAYOUT: TemplateLayout = {
   signatureTopPercent: 66,
   signatureWidthPercent: 64,
   signatureScale: 100,
+  showName: true,
+  showTradeCategory: true,
+  showIssuedDate: true,
+  showExpiryDate: true,
+  showUid: true,
+  showOfficerScanLabel: true,
+  showStatus: true,
+  showSignatures: true,
+  showSignatureLabels: true,
   showVerification: true,
 };
 
@@ -506,6 +537,15 @@ function normalizeLayout(layout: Partial<TemplateLayout>): TemplateLayout {
     signatureTopPercent: clamp(next.signatureTopPercent, 45, 88),
     signatureWidthPercent,
     signatureScale: clamp(next.signatureScale, 70, 130),
+    showName: next.showName,
+    showTradeCategory: next.showTradeCategory,
+    showIssuedDate: next.showIssuedDate,
+    showExpiryDate: next.showExpiryDate,
+    showUid: next.showUid,
+    showOfficerScanLabel: next.showOfficerScanLabel,
+    showStatus: next.showStatus,
+    showSignatures: next.showSignatures,
+    showSignatureLabels: next.showSignatureLabels,
     showVerification: next.showVerification,
   };
 }
@@ -607,7 +647,15 @@ function SignatureUpload({
   );
 }
 
-function SignaturePreview({ slot, signature }: { slot: SignatureSlot; signature: TemplateSignature | null }) {
+function SignaturePreview({
+  slot,
+  signature,
+  showLabel,
+}: {
+  slot: SignatureSlot;
+  signature: TemplateSignature | null;
+  showLabel: boolean;
+}) {
   const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
   const src = signature ? signatureFileUrl(slot, signature.uploadedAt) : '';
   return (
@@ -619,10 +667,34 @@ function SignaturePreview({ slot, signature }: { slot: SignatureSlot; signature:
           <span className="text-[9px] uppercase tracking-[0.14em] text-ink-400">{label} signature</span>
         )}
       </div>
-      <div className="mt-1 border-t border-ink-900 pt-1">
-        <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
-      </div>
+      {showLabel && (
+        <div className="mt-1 border-t border-ink-900 pt-1">
+          <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-ink-700">{label}</p>
+        </div>
+      )}
     </div>
+  );
+}
+
+function VisibilityToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-ink-50/40 px-3 py-2 text-sm">
+      <span className="font-medium text-ink-800">{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 accent-[hsl(var(--primary))]"
+      />
+    </label>
   );
 }
 
