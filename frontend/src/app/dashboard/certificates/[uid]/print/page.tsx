@@ -85,9 +85,8 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               top: `${layout.nameTopPercent}%`,
             }}
           >
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-500">This certifies that</p>
             <p
-              className="mt-4 font-display font-medium leading-tight text-ink-950"
+              className="font-display font-medium leading-tight text-ink-950"
               style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
             >
               {result.handlerName}
@@ -136,9 +135,8 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               top: `${layout.nameTopPercent}%`,
             }}
           >
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-500">This certifies that</p>
             <p
-              className="mt-4 font-display font-medium leading-tight text-ink-950"
+              className="font-display font-medium leading-tight text-ink-950"
               style={{ fontSize: `${3.75 * (layout.nameScale / 100)}rem` }}
             >
               {result.handlerName}
@@ -187,8 +185,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             </div>
 
             <div className="py-12 text-center">
-              <p className="text-sm uppercase tracking-[0.18em] text-ink-500">This certifies that</p>
-              <p className="mt-5 font-display text-6xl font-medium text-ink-950">{result.handlerName}</p>
+              <p className="font-display text-6xl font-medium text-ink-950">{result.handlerName}</p>
               <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-ink-700">
                 has completed the required registration, payment confirmation, and medical screening workflow for food handler compliance.
               </p>

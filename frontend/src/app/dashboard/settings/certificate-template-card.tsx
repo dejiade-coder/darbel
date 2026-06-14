@@ -239,9 +239,8 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                 onPointerDown={startDrag('name')}
                 onPointerMove={continueDrag('name')}
               >
-                <p className="text-[8px] uppercase tracking-[0.18em] text-ink-500">This certifies that</p>
                 <p
-                  className="mt-1 truncate font-display font-medium leading-tight text-ink-950"
+                  className="truncate font-display font-medium leading-tight text-ink-950"
                   style={{ fontSize: `${1.8 * (layout.nameScale / 100)}rem` }}
                 >
                   Sample Handler Name
