@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
-import { ExternalLink, Mail, MessageCircle, Printer, RotateCcw, ShieldX } from 'lucide-react';
+import { Mail, MessageCircle, Printer, RotateCcw, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Certificate = {
@@ -18,27 +18,24 @@ type DeliveryChannel = 'PRINT' | 'EMAIL' | 'WHATSAPP';
 
 export function CertificateActions({
   item,
-  origin,
   canRevoke,
   canRenew,
 }: {
   item: Certificate;
-  origin: string;
   canRevoke: boolean;
   canRenew: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const printUrl = `/dashboard/certificates/${encodeURIComponent(item.uid)}/print`;
-  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
-  const mailUrl = buildMailLink(item, origin);
-  const whatsAppUrl = buildWhatsAppLink(item, origin);
+  const mailUrl = buildMailLink(item);
+  const whatsAppUrl = buildWhatsAppLink(item);
 
   function recordAndOpen(channel: DeliveryChannel, url: string, mode: 'same-tab' | 'new-tab' | 'location') {
     const targetWindow = mode === 'new-tab' ? window.open('about:blank', '_blank') : null;
     startTransition(async () => {
       try {
-        await recordDelivery(item, channel, url, verifyUrl);
+        await recordDelivery(item, channel, url);
         router.refresh();
         if (mode === 'same-tab') {
           router.push(url);
@@ -108,12 +105,6 @@ export function CertificateActions({
         <Printer className="mr-2 h-3.5 w-3.5" />
         Print
       </Button>
-      <Button asChild variant="outline" size="sm">
-        <a href={`/verify/${encodeURIComponent(item.uid)}`} target="_blank">
-          <ExternalLink className="mr-2 h-3.5 w-3.5" />
-          Verify
-        </a>
-      </Button>
       <Button
         type="button"
         variant="outline"
@@ -166,7 +157,6 @@ async function recordDelivery(
   item: Certificate,
   channel: DeliveryChannel,
   deliveryUrl: string,
-  verificationUrl: string,
 ): Promise<void> {
   const res = await fetch('/dashboard/certificates/deliveries', {
     method: 'POST',
@@ -176,7 +166,7 @@ async function recordDelivery(
       channel,
       recipient: channel === 'EMAIL' ? item.handlerEmail : channel === 'WHATSAPP' ? item.handlerPhone : null,
       deliveryUrl,
-      verificationUrl,
+      verificationUrl: '',
       messagePreview: buildMessagePreview(item, channel),
     }),
   });
@@ -219,26 +209,24 @@ function buildMessagePreview(item: Certificate, channel: DeliveryChannel): strin
   return `WhatsApp certificate ${item.uid} to ${item.handlerPhone ?? 'share recipient'}`;
 }
 
-function buildMailLink(item: Certificate, origin: string): string {
-  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
+function buildMailLink(item: Certificate): string {
   const subject = `Darbel certificate ${item.uid}`;
   const body = [
     `Hello ${item.handlerName},`,
     '',
     'Your Darbel compliance certificate is ready.',
     `Certificate UID: ${item.uid}`,
-    `Verify it here: ${verifyUrl}`,
+    `Authorized officers can scan the barcode on the printed certificate to view handler details.`,
   ].join('\n');
   const recipient = item.handlerEmail ? encodeURIComponent(item.handlerEmail) : '';
   return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function buildWhatsAppLink(item: Certificate, origin: string): string {
-  const verifyUrl = `${origin}/verify/${encodeURIComponent(item.uid)}`;
+function buildWhatsAppLink(item: Certificate): string {
   const text = [
     `Darbel compliance certificate for ${item.handlerName}`,
     `UID: ${item.uid}`,
-    `Verify: ${verifyUrl}`,
+    'Officer barcode scan is required to reveal handler details.',
   ].join('\n');
   const phone = normalizeWhatsAppPhone(item.handlerPhone);
   const recipientPath = phone ? `/${phone}` : '';

@@ -45,9 +45,18 @@ export interface VerificationDto {
 export class CertificatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(ctx: ActorContext, q?: string): Promise<{ items: CertificatePublicDto[] }> {
+  async list(ctx: ActorContext, q?: string, status?: string): Promise<{ items: CertificatePublicDto[] }> {
     return this.prisma.runWithContext(ctx, async (tx) => {
       const where: Prisma.CertificateWhereInput = {};
+      if (status === 'EXPIRED') {
+        where.status = { not: 'REVOKED' };
+        where.expiresAt = { lt: new Date() };
+      } else if (status === 'VALID') {
+        where.status = 'VALID';
+        where.expiresAt = { gte: new Date() };
+      } else if (status) {
+        where.status = status;
+      }
       if (q) {
         where.OR = [
           { uid: { contains: q, mode: 'insensitive' } },
@@ -466,6 +475,6 @@ function notificationResult(
 
 const DEFAULT_CERTIFICATE_READY_TEMPLATE: MessageTemplate = {
   subject: 'Darbel certificate ready',
-  body: 'Hello {{handlerName}}, your compliance certificate is ready. Verify it here: {{verificationUrl}}',
-  whatsApp: 'Darbel certificate ready for {{handlerName}}. Verify: {{verificationUrl}}',
+  body: 'Hello {{handlerName}}, your compliance certificate is ready. Certificate UID: {{uid}}. Authorized officers can scan the barcode on the printed certificate to view handler details.',
+  whatsApp: 'Darbel certificate ready for {{handlerName}}. UID: {{uid}}. Officer barcode scan is required to reveal handler details.',
 };

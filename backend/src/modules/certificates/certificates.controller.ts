@@ -16,9 +16,10 @@ export class CertificatesController {
   list(
     @CurrentUser() actor: AuthenticatedActor,
     @Query('q') q: string | undefined,
+    @Query('status') status: string | undefined,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.certificates.list(toContext(actor, req), q?.trim());
+    return this.certificates.list(toContext(actor, req), q?.trim(), status?.trim());
   }
 
   @Public()
