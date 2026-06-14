@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { LockKeyhole, UserRound } from 'lucide-react';
 import type { LoginFormState } from './actions';
 
@@ -10,7 +11,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ action, initialError }: LoginFormProps) {
-  const [state, formAction] = useFormState(action, { error: initialError });
+  const [state, formAction] = useActionState(action, { error: initialError });
 
   return (
     <form action={formAction} className="mx-auto w-full max-w-[340px] space-y-7">
