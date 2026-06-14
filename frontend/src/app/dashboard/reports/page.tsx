@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '@/lib/api/server-client';
 export const metadata = { title: 'Reports' };
 
 type Breakdown = { label: string; count: number };
+type MonthlyTrend = { label: string; registrations: number; certificates: number };
 
 type Summary = {
   registrations: number;
@@ -33,6 +34,8 @@ type Summary = {
   medicalStatusBreakdown: Breakdown[];
   certificateStatusBreakdown: Breakdown[];
   topTradeCategories: Breakdown[];
+  monthlyTrends: MonthlyTrend[];
+  deliveryChannelBreakdown: Breakdown[];
 };
 
 export default async function ReportsPage({
@@ -156,6 +159,24 @@ export default async function ReportsPage({
             </Panel>
           </section>
 
+          <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
+            <Panel
+              title="6-Month Trend"
+              description="Registrations and issued certificates over time."
+              icon={TrendingUp}
+            >
+              <TrendChart items={summary.monthlyTrends} />
+            </Panel>
+
+            <Panel
+              title="Delivery Channels"
+              description="How certificates are being distributed."
+              icon={Download}
+            >
+              <DeliveryChart items={summary.deliveryChannelBreakdown} total={summary.certificateDeliveries} />
+            </Panel>
+          </section>
+
           <section className="grid gap-5 xl:grid-cols-3">
             <StatusChart title="Registration Mix" items={summary.registrationStatusBreakdown} total={summary.registrations} />
             <StatusChart title="Medical Mix" items={summary.medicalStatusBreakdown} total={summary.medicalScreenings} />
@@ -275,6 +296,60 @@ function WorkflowChart({ items }: { items: Array<{ label: string; value: number;
   );
 }
 
+function TrendChart({ items }: { items: MonthlyTrend[] }) {
+  const max = Math.max(...items.flatMap((item) => [item.registrations, item.certificates]), 1);
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-4 text-xs text-ink-600">
+        <LegendSwatch color="bg-[#0f5257]" label="Registrations" />
+        <LegendSwatch color="bg-[#d4a017]" label="Certificates" />
+      </div>
+      <div className="grid min-h-72 grid-cols-6 items-end gap-3 border-l border-b border-ink-100 px-3 pb-4 pt-6">
+        {items.map((item) => {
+          const registrationHeight = Math.max(4, Math.round((item.registrations / max) * 100));
+          const certificateHeight = Math.max(4, Math.round((item.certificates / max) * 100));
+          return (
+            <div key={item.label} className="flex h-full min-w-0 flex-col items-center justify-end gap-3">
+              <div className="flex h-48 w-full items-end justify-center gap-1.5">
+                <div className="w-1/3 rounded-t-sm bg-[#0f5257]" style={{ height: `${registrationHeight}%` }} />
+                <div className="w-1/3 rounded-t-sm bg-[#d4a017]" style={{ height: `${certificateHeight}%` }} />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium text-ink-700">{item.label}</p>
+                <p className="mt-1 font-mono text-[10px] text-ink-500">{item.registrations}/{item.certificates}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DeliveryChart({ items, total }: { items: Breakdown[]; total: number }) {
+  const visible = items.filter((item) => item.count > 0);
+  return (
+    <div className="space-y-4">
+      {visible.length === 0 && <p className="text-sm text-ink-500">No delivery records yet.</p>}
+      {visible.map((item, index) => {
+        const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
+        return (
+          <div key={item.label} className="rounded-sm border border-ink-100 bg-ink-50/40 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-ink-900">{formatLabel(item.label)}</span>
+              <span className="font-mono text-xs text-ink-500">{pct}%</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-sm bg-white">
+              <div className={barTone(index)} style={{ width: `${pct}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-ink-500">{item.count} recorded deliveries</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Ring({ label, value }: { label: string; value: number }) {
   const pct = clampPercent(value);
   return (
@@ -292,6 +367,15 @@ function Ring({ label, value }: { label: string; value: number }) {
         <p className="mt-1 text-xs text-ink-500">Current conversion rate</p>
       </div>
     </div>
+  );
+}
+
+function LegendSwatch({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`h-2.5 w-2.5 rounded-sm ${color}`} />
+      {label}
+    </span>
   );
 }
 

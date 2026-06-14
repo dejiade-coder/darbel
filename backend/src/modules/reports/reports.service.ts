@@ -41,6 +41,8 @@ export class ReportsService {
         medicalByStatus,
         certificatesByStatus,
         topTrades,
+        registrationTrendRows,
+        certificateTrendRows,
       ] = await Promise.all([
         tx.handlerRegistration.count({ where: registrationWhere }),
         tx.handlerRegistration.count({ where: { ...registrationWhere, status: 'DRAFT' } }),
@@ -83,7 +85,18 @@ export class ReportsService {
           orderBy: { _count: { tradeCategory: 'desc' } },
           take: 8,
         }),
+        tx.handlerRegistration.findMany({
+          where: { ...registrationWhere, createdAt: trendDateRange(filters) },
+          select: { createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        }),
+        tx.certificate.findMany({
+          where: { ...certificateWhere, issuedAt: trendDateRange(filters) },
+          select: { issuedAt: true },
+          orderBy: { issuedAt: 'asc' },
+        }),
       ]);
+      const trends = buildMonthlyTrends(registrationTrendRows, certificateTrendRows);
       return {
         registrations,
         drafts,
@@ -122,6 +135,12 @@ export class ReportsService {
           label: row.tradeCategory ?? 'Unspecified',
           count: row._count._all,
         })),
+        monthlyTrends: trends,
+        deliveryChannelBreakdown: [
+          { label: 'PRINT', count: certificatePrints },
+          { label: 'EMAIL', count: certificateEmails },
+          { label: 'WHATSAPP', count: certificateWhatsApps },
+        ],
       };
     });
   }
@@ -570,6 +589,53 @@ function buildDateRange(filters: ReportFilters): { gte?: Date; lte?: Date } | un
     range.lte = to;
   }
   return range.gte || range.lte ? range : undefined;
+}
+
+function trendDateRange(filters: ReportFilters): { gte?: Date; lte?: Date } {
+  const explicitRange = buildDateRange(filters);
+  if (explicitRange) return explicitRange;
+  const start = new Date();
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCMonth(start.getUTCMonth() - 5);
+  return { gte: start };
+}
+
+function buildMonthlyTrends(
+  registrations: Array<{ createdAt: Date }>,
+  certificates: Array<{ issuedAt: Date }>,
+): Array<{ label: string; registrations: number; certificates: number }> {
+  const months = buildTrendMonths();
+  const byMonth = new Map(months.map((month) => [month.key, { label: month.label, registrations: 0, certificates: 0 }]));
+  for (const row of registrations) {
+    const key = monthKey(row.createdAt);
+    const bucket = byMonth.get(key);
+    if (bucket) bucket.registrations += 1;
+  }
+  for (const row of certificates) {
+    const key = monthKey(row.issuedAt);
+    const bucket = byMonth.get(key);
+    if (bucket) bucket.certificates += 1;
+  }
+  return Array.from(byMonth.values());
+}
+
+function buildTrendMonths(): Array<{ key: string; label: string }> {
+  const current = new Date();
+  current.setUTCDate(1);
+  current.setUTCHours(0, 0, 0, 0);
+  return Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(current);
+    date.setUTCMonth(current.getUTCMonth() - (5 - index));
+    return {
+      key: monthKey(date),
+      label: date.toLocaleString('en-US', { month: 'short' }),
+    };
+  });
+}
+
+function monthKey(value: Date): string {
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function parseDate(value: string | undefined): Date | undefined {
