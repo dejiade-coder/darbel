@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  AlertTriangle,
   ArrowRight,
   BadgeCheck,
   BarChart3,
@@ -10,8 +11,9 @@ import {
   LayoutDashboard,
   Printer,
   ShieldCheck,
-  Users,
+  TrendingUp,
   UserCog,
+  Users,
 } from 'lucide-react';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
 import { Alert } from '@/components/ui/alert';
@@ -77,40 +79,84 @@ export default async function DashboardHome() {
 
   const medicalQueue = summary.readyForScreening + summary.samplesCollected + summary.resultsEntered;
   const pendingDelivery = Math.max(summary.validCertificates - summary.certificateDeliveries, 0);
+  const certificationRate = percent(summary.validCertificates, summary.registrations);
+  const medicalPassRate = percent(summary.medicalApproved, summary.medicalApproved + summary.medicalRejected);
+  const activeWork = summary.drafts + summary.submittedForReview + medicalQueue + pendingDelivery;
+
   const workflow = [
     { label: 'Intake', value: summary.registrations, href: '/dashboard/registrations', color: 'bg-[#0f5257]' },
-    { label: 'Paid / UID', value: summary.approvedPayments, href: '/dashboard/payments', color: 'bg-[#1f7a6d]' },
-    { label: 'Medical', value: summary.medicalScreenings, href: '/dashboard/medical', color: 'bg-[#3d8b6f]' },
-    { label: 'Approved', value: summary.medicalApproved, href: '/dashboard/medical', color: 'bg-[#6d9f71]' },
+    { label: 'Payment', value: summary.approvedPayments, href: '/dashboard/payments', color: 'bg-[#17806f]' },
+    { label: 'Medical', value: summary.medicalScreenings, href: '/dashboard/medical', color: 'bg-[#4f9f78]' },
+    { label: 'Approved', value: summary.medicalApproved, href: '/dashboard/medical', color: 'bg-[#82a957]' },
     { label: 'Certified', value: summary.validCertificates, href: '/dashboard/certificates', color: 'bg-[#d4a017]' },
+  ];
+
+  const priorities = [
+    {
+      href: '/dashboard/registrations?status=SUBMITTED_FOR_REVIEW',
+      label: 'Payment review',
+      description: 'Registrar decision needed',
+      value: summary.submittedForReview,
+      tone: 'warning' as const,
+    },
+    {
+      href: '/dashboard/medical',
+      label: 'Medical queue',
+      description: 'Collect samples or enter results',
+      value: medicalQueue,
+      tone: 'accent' as const,
+    },
+    {
+      href: '/dashboard/certificates',
+      label: 'Certificate delivery',
+      description: 'Print, send, or mark delivered',
+      value: pendingDelivery,
+      tone: 'success' as const,
+    },
   ];
 
   return (
     <div className="space-y-6">
-      <header className="rounded-sm border border-ink-200 bg-white p-5">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Darbel command center</p>
-            <h1 className="mt-2 font-display text-4xl font-medium text-ink-950">
-              {me ? `Welcome back, ${firstName(me.fullName)}.` : 'Compliance Overview'}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-600">
-              Track today’s compliance work from intake to certification, then jump straight into the queue that needs attention.
-            </p>
+      <header className="overflow-hidden rounded-sm border border-[#0c4a42]/20 bg-[#062f2d] text-white shadow-sm">
+        <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-7">
+          <div className="flex min-h-56 flex-col justify-between gap-8">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">Darbel command center</p>
+              <h1 className="mt-3 max-w-3xl font-display text-4xl font-medium text-white lg:text-5xl">
+                {me ? `Welcome back, ${firstName(me.fullName)}.` : 'Compliance Overview'}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/80">
+                Monitor registrations, medical screening, certificates, and delivery from one calm operating view.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild className="bg-white text-[#062f2d] hover:bg-emerald-50">
+                <Link href="/dashboard/registrations/new">
+                  <ClipboardPlus className="mr-2 h-4 w-4" />
+                  New registration
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10">
+                <Link href="/dashboard/reports">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Reports
+                </Link>
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href="/dashboard/registrations/new">
-                <ClipboardPlus className="mr-2 h-4 w-4" />
-                New registration
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/dashboard/reports">
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Reports
-              </Link>
-            </Button>
+
+          <div className="grid content-between gap-3 rounded-sm border border-white/15 bg-white/8 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-emerald-100/70">Active workload</p>
+                <p className="mt-2 font-display text-5xl font-medium">{activeWork}</p>
+              </div>
+              <LayoutDashboard className="h-6 w-6 text-emerald-100/80" />
+            </div>
+            <div className="grid gap-3">
+              <HeroMeter label="Certification rate" value={certificationRate} />
+              <HeroMeter label="Medical pass rate" value={medicalPassRate} />
+            </div>
           </div>
         </div>
       </header>
@@ -132,38 +178,37 @@ export default async function DashboardHome() {
       )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={ClipboardPlus} label="Registrations" value={summary.registrations} detail={`${summary.drafts} drafts`} />
-        <Metric icon={BadgeCheck} label="Review queue" value={summary.submittedForReview} detail="Awaiting payment decision" />
+        <Metric icon={ClipboardPlus} label="Registrations" value={summary.registrations} detail={`${summary.drafts} drafts saved`} />
+        <Metric icon={CreditCard} label="Payments approved" value={summary.approvedPayments} detail={`${summary.submittedForReview} awaiting decision`} />
         <Metric icon={FlaskConical} label="Medical queue" value={medicalQueue} detail={`${summary.resultsEntered} results entered`} />
-        <Metric icon={ShieldCheck} label="Certificates" value={summary.validCertificates} detail={`${pendingDelivery} pending delivery`} />
+        <Metric icon={ShieldCheck} label="Valid certificates" value={summary.validCertificates} detail={`${pendingDelivery} pending delivery`} />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <Panel title="Workflow Progress" description="Live movement from registration to valid certificate." icon={LayoutDashboard}>
+        <Panel title="Workflow Movement" description="A quick view of where applications are clustering." icon={TrendingUp}>
           <WorkflowBars items={workflow} />
         </Panel>
 
-        <Panel title="Priority Queue" description="The work that should be cleared first." icon={BadgeCheck}>
+        <Panel title="Priority Work" description="Clear these first to keep the flow moving." icon={AlertTriangle}>
           <div className="grid gap-3">
-            <QueueItem href="/dashboard/registrations?status=SUBMITTED_FOR_REVIEW" label="Review applicants" value={summary.submittedForReview} tone="warning" />
-            <QueueItem href="/dashboard/medical" label="Complete medical screening" value={medicalQueue} tone="accent" />
-            <QueueItem href="/dashboard/certificates" label="Record certificate delivery" value={pendingDelivery} tone="success" />
-            <QueueItem href="/dashboard/readiness" label="Launch readiness" value={summary.registrations > 0 && summary.validCertificates > 0 ? 0 : 1} tone="neutral" />
+            {priorities.map((item) => (
+              <QueueItem key={item.label} {...item} />
+            ))}
           </div>
         </Panel>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
-        <Panel title="Quick Actions" description="Jump into the main operating surfaces." icon={ArrowRight}>
+        <Panel title="Fast Paths" description="Open the main workspaces without hunting through the sidebar." icon={ArrowRight}>
           <div className="grid gap-3 md:grid-cols-2">
-            <ActionLink href="/dashboard/payments" icon={CreditCard} title="Approve payments" value={summary.approvedPayments} />
-            <ActionLink href="/dashboard/medical" icon={FlaskConical} title="Attend medical queue" value={summary.medicalScreenings} />
-            <ActionLink href="/dashboard/certificates" icon={Printer} title="Print certificates" value={summary.validCertificates} />
-            <ActionLink href="/dashboard/reports" icon={BarChart3} title="Open reports" value={summary.registrations + summary.validCertificates} />
+            <ActionLink href="/dashboard/registrations" icon={ClipboardPlus} title="Registration queue" value={summary.registrations} />
+            <ActionLink href="/dashboard/medical" icon={FlaskConical} title="Medical workspace" value={summary.medicalScreenings} />
+            <ActionLink href="/dashboard/certificates" icon={Printer} title="Certificate desk" value={summary.validCertificates} />
+            <ActionLink href="/dashboard/reports" icon={BarChart3} title="Reporting dashboard" value={summary.registrations + summary.validCertificates} />
           </div>
         </Panel>
 
-        <Panel title="Operator Context" description="Signed-in user and admin shortcuts." icon={UserCog}>
+        <Panel title="Operator" description="Current account and useful admin links." icon={UserCog}>
           <div className="space-y-3 text-sm">
             <Row label="Full name" value={me?.fullName ?? actor.email} />
             <Row label="Email" value={actor.email} mono />
@@ -207,7 +252,7 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-sm border border-ink-200 bg-white p-5">
+    <div className="rounded-sm border border-ink-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{label}</p>
         <Icon className="h-4 w-4 text-accent" />
@@ -230,7 +275,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-sm border border-ink-200 bg-white p-5">
+    <section className="rounded-sm border border-ink-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl font-medium text-ink-950">{title}</h2>
@@ -248,11 +293,11 @@ function WorkflowBars({ items }: { items: Array<{ label: string; value: number; 
   return (
     <div className="grid min-h-80 grid-cols-5 items-end gap-3 border-l border-b border-ink-100 px-3 pb-4 pt-8">
       {items.map((item) => {
-        const height = Math.max(6, Math.round((item.value / max) * 100));
+        const height = Math.max(7, Math.round((item.value / max) * 100));
         return (
           <Link key={item.label} href={item.href} className="group flex h-full min-w-0 flex-col items-center justify-end gap-3">
             <p className="font-mono text-sm font-semibold text-ink-900">{item.value}</p>
-            <div className="flex h-56 w-full items-end">
+            <div className="flex h-56 w-full items-end rounded-t-sm bg-ink-50">
               <div className={`w-full rounded-t-sm transition-opacity group-hover:opacity-80 ${item.color}`} style={{ height: `${height}%` }} />
             </div>
             <p className="min-h-8 text-center text-xs font-medium text-ink-600">{item.label}</p>
@@ -266,19 +311,21 @@ function WorkflowBars({ items }: { items: Array<{ label: string; value: number; 
 function QueueItem({
   href,
   label,
+  description,
   value,
   tone,
 }: {
   href: string;
   label: string;
+  description: string;
   value: number;
-  tone: 'warning' | 'accent' | 'success' | 'neutral';
+  tone: 'warning' | 'accent' | 'success';
 }) {
   return (
-    <Link href={href} className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-ink-50/40 p-4 transition hover:border-accent/40">
+    <Link href={href} className="flex items-center justify-between gap-4 rounded-sm border border-ink-100 bg-ink-50/50 p-4 transition hover:border-accent/40 hover:bg-white">
       <div>
         <p className="text-sm font-semibold text-ink-900">{label}</p>
-        <p className="mt-1 text-xs text-ink-500">{value <= 0 ? 'Nothing pending' : 'Needs attention'}</p>
+        <p className="mt-1 text-xs text-ink-500">{value <= 0 ? 'Nothing pending' : description}</p>
       </div>
       <span className={`rounded-sm px-2.5 py-1 font-mono text-sm font-semibold ${queueTone(tone)}`}>{value <= 0 ? 'Clear' : value}</span>
     </Link>
@@ -297,17 +344,31 @@ function ActionLink({
   value: number;
 }) {
   return (
-    <Link href={href} className="group rounded-sm border border-ink-100 bg-ink-50/40 p-4 transition hover:border-accent/40">
+    <Link href={href} className="group rounded-sm border border-ink-100 bg-ink-50/50 p-4 transition hover:border-accent/40 hover:bg-white">
       <div className="flex items-center justify-between gap-3">
         <Icon className="h-4 w-4 text-accent" />
         <span className="font-mono text-sm font-semibold text-ink-700">{value}</span>
       </div>
       <p className="mt-3 text-sm font-semibold text-ink-900">{title}</p>
       <span className="mt-3 inline-flex items-center text-xs font-medium text-accent">
-        Continue
+        Open
         <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
       </span>
     </Link>
+  );
+}
+
+function HeroMeter({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-emerald-50/80">
+        <span>{label}</span>
+        <span className="font-mono font-semibold text-white">{value}%</span>
+      </div>
+      <div className="h-2 rounded-sm bg-white/15">
+        <div className="h-2 rounded-sm bg-[#d4a017]" style={{ width: `${value}%` }} />
+      </div>
+    </div>
   );
 }
 
@@ -331,11 +392,15 @@ function MiniLink({ href, icon: Icon, label }: { href: string; icon: React.Eleme
   );
 }
 
-function queueTone(tone: 'warning' | 'accent' | 'success' | 'neutral'): string {
+function queueTone(tone: 'warning' | 'accent' | 'success'): string {
   if (tone === 'warning') return 'bg-warning/10 text-warning';
   if (tone === 'success') return 'bg-success/10 text-success';
-  if (tone === 'accent') return 'bg-accent/10 text-accent';
-  return 'bg-ink-100 text-ink-700';
+  return 'bg-accent/10 text-accent';
+}
+
+function percent(part: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((part / total) * 100)));
 }
 
 function firstName(full: string): string {
