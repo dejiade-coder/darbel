@@ -36,6 +36,14 @@ const statusStyles: Record<string, string> = {
   Cancelled: 'bg-danger/10 text-danger',
 };
 
+const STATUS_TABS: Array<{ label: string; value: Registration['status'] | '' }> = [
+  { label: 'All registrations', value: '' },
+  { label: 'Drafts', value: 'DRAFT' },
+  { label: 'Review', value: 'SUBMITTED_FOR_REVIEW' },
+  { label: 'Ready', value: 'READY_FOR_SCREENING' },
+  { label: 'Cancelled', value: 'CANCELLED' },
+];
+
 type RegistrationsSearchParams = {
   q?: string;
   status?: Registration['status'];
@@ -78,22 +86,24 @@ export default async function RegistrationsPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-ink-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Phase 2</p>
-          <h1 className="mt-1 font-display text-4xl font-medium text-ink-900">
-            Registrations
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink-600">
-            Intake, review, and prepare food handler records before payment and medical screening.
-          </p>
+      <header className="rounded-sm border border-ink-200 bg-white p-5">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Registration operations</p>
+            <h1 className="mt-2 font-display text-4xl font-medium text-ink-950">
+              Registrations
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-600">
+              Capture applicants, complete payment handoff, and prepare approved handlers for medical screening from one queue.
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/dashboard/registrations/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New registration
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/registrations/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New registration
-          </Link>
-        </Button>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -104,12 +114,12 @@ export default async function RegistrationsPage({
         <Metric icon={BadgeCheck} label="Ready" value={`${readyCount}`} detail="Payment approved" />
       </section>
 
-      <section className="rounded-sm border border-ink-200 bg-white">
+      <section className="rounded-sm border border-ink-200 bg-white p-4">
         <form
           action="/dashboard/registrations"
-          className="flex flex-col gap-3 border-b border-ink-100 p-4 lg:flex-row lg:items-center lg:justify-between"
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]"
         >
-          <div className="relative max-w-xl flex-1">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
             <Input
               name="q"
@@ -120,100 +130,82 @@ export default async function RegistrationsPage({
             />
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="outline" size="sm">
+          <div className="flex gap-2">
+            <Button type="submit" size="sm">
               <Search className="mr-2 h-3.5 w-3.5" />
               Search
             </Button>
-            <Button asChild variant={statusFilter === 'DRAFT' ? 'default' : 'outline'} size="sm">
-              <Link href={buildRegistrationsHref({ q, status: 'DRAFT' })}>
-                <Filter className="mr-2 h-3.5 w-3.5" />
-                Drafts
-              </Link>
-            </Button>
-            <Button asChild variant={statusFilter === 'SUBMITTED_FOR_REVIEW' ? 'default' : 'outline'} size="sm">
-              <Link href={buildRegistrationsHref({ q, status: 'SUBMITTED_FOR_REVIEW' })}>
-                <Filter className="mr-2 h-3.5 w-3.5" />
-                Review
-              </Link>
-            </Button>
-            <Button asChild variant={statusFilter === 'READY_FOR_SCREENING' ? 'default' : 'outline'} size="sm">
-              <Link href={buildRegistrationsHref({ q, status: 'READY_FOR_SCREENING' })}>
-                <Filter className="mr-2 h-3.5 w-3.5" />
-                Ready
-              </Link>
-            </Button>
-            <Button asChild variant={statusFilter === 'CANCELLED' ? 'default' : 'outline'} size="sm">
-              <Link href={buildRegistrationsHref({ q, status: 'CANCELLED' })}>
-                <Filter className="mr-2 h-3.5 w-3.5" />
-                Cancelled
-              </Link>
-            </Button>
             {(q || statusFilter) && (
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="outline" size="sm">
                 <Link href="/dashboard/registrations">Clear</Link>
               </Button>
             )}
           </div>
         </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {STATUS_TABS.map((tab) => (
+            <Button key={tab.value || 'all'} asChild size="sm" variant={(statusFilter ?? '') === tab.value ? 'default' : 'outline'}>
+              <Link href={buildRegistrationsHref({ q, status: tab.value || undefined })}>
+                {tab.value && <Filter className="mr-2 h-3.5 w-3.5" />}
+                {tab.label}
+              </Link>
+            </Button>
+          ))}
+        </div>
+      </section>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead className="bg-ink-50 text-left text-[11px] uppercase tracking-[0.14em] text-ink-500">
-              <tr>
-                <th className="px-5 py-3 font-medium">Handler</th>
-                <th className="px-5 py-3 font-medium">Category</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Updated</th>
-                <th className="px-5 py-3 text-right font-medium">Open</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {loadError && (
-                <tr>
-                  <td className="px-5 py-8 text-sm text-danger" colSpan={5}>
-                    {loadError}
-                  </td>
-                </tr>
-              )}
-              {!loadError && items.length === 0 && (
-                <tr>
-                  <td className="px-5 py-8 text-sm text-ink-500" colSpan={5}>
-                    {q || statusFilter ? 'No registrations match this filter.' : 'No registrations yet.'}
-                  </td>
-                </tr>
-              )}
-              {items.map((handler) => {
-                const name = [handler.firstName, handler.lastName].filter(Boolean).join(' ') || 'Unnamed handler';
-                const status = displayStatus(handler.status);
-                return (
-                <tr key={handler.id} className="hover:bg-ink-50/70">
-                  <td className="px-5 py-4">
-                    <p className="font-medium text-ink-900">{name}</p>
-                    <p className="mt-1 font-mono text-xs text-ink-500">
-                      {handler.uid ?? handler.id}
-                    </p>
-                    <p className="mt-1 text-xs text-ink-500">{handler.phone || 'No phone yet'}</p>
-                  </td>
-                  <td className="px-5 py-4 text-ink-700">{handler.tradeCategory || 'Not selected'}</td>
-                  <td className="px-5 py-4">
+      <section className="rounded-sm border border-ink-200 bg-white">
+        <div className="flex items-center gap-3 border-b border-ink-100 p-5">
+          <ClipboardList className="h-4 w-4 text-accent" />
+          <h2 className="text-base font-semibold text-ink-900">Registration queue</h2>
+        </div>
+        {loadError && <p className="p-5 text-sm text-danger">{loadError}</p>}
+        {!loadError && items.length === 0 && (
+          <p className="p-5 text-sm text-ink-500">
+            {q || statusFilter ? 'No registrations match this filter.' : 'No registrations yet.'}
+          </p>
+        )}
+        <div className="grid gap-4 p-5">
+          {items.map((handler) => {
+            const name = [handler.firstName, handler.lastName].filter(Boolean).join(' ') || 'Unnamed handler';
+            const status = displayStatus(handler.status);
+            return (
+              <div key={handler.id} className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm xl:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-ink-900">{name}</p>
+                      <p className="mt-1 font-mono text-xs text-ink-500">{handler.uid ?? handler.id}</p>
+                      <p className="mt-1 text-xs text-ink-500">{handler.phone || 'No phone yet'}</p>
+                    </div>
                     <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
                       {status}
                     </span>
-                  </td>
-                  <td className="px-5 py-4 text-ink-600">{formatDate(handler.submittedAt ?? handler.createdAt)}</td>
-                  <td className="px-5 py-4 text-right">
-                    <Button asChild variant="ghost" size="icon" aria-label={`Open ${name}`}>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs text-ink-600">
+                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">{handler.tradeCategory || 'Not selected'}</span>
+                    {handler.businessName && <span className="rounded-sm bg-ink-50 px-2.5 py-1">{handler.businessName}</span>}
+                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">Updated {formatDate(handler.submittedAt ?? handler.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  {handler.status === 'DRAFT' && (
+                    <Button asChild variant="outline" size="sm">
                       <Link href={`/dashboard/registrations/${handler.id}`}>
-                        <ArrowRight className="h-4 w-4" />
+                        Review draft
                       </Link>
                     </Button>
-                  </td>
-                </tr>
-              );
-              })}
-            </tbody>
-          </table>
+                  )}
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/registrations/${handler.id}`}>
+                      Open
+                      <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
