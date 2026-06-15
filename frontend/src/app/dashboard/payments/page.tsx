@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, CreditCard, Filter, ReceiptText, Search, WalletCards } from 'lucide-react';
+import { ArrowRight, CheckCircle2, CreditCard, Filter, ReceiptText, Search, ShieldCheck, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
@@ -38,6 +38,14 @@ const statusStyles: Record<string, string> = {
   Refunded: 'bg-warning/10 text-warning',
 };
 
+const STATUS_TABS: Array<{ label: string; value: Payment['status'] | '' }> = [
+  { label: 'All payments', value: '' },
+  { label: 'Recorded', value: 'RECORDED' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Voided', value: 'VOIDED' },
+  { label: 'Refunded', value: 'REFUNDED' },
+];
+
 export default async function PaymentsPage({
   searchParams,
 }: {
@@ -70,37 +78,47 @@ export default async function PaymentsPage({
 
   const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
   const recordedCount = items.filter((item) => item.status === 'RECORDED').length;
+  const approvedCount = items.filter((item) => item.status === 'APPROVED').length;
   const cashCount = items.filter((item) => item.method === 'CASH').length;
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-ink-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Phase 2</p>
-          <h1 className="mt-1 font-display text-4xl font-medium text-ink-900">Payments</h1>
-          <p className="mt-2 max-w-2xl text-sm text-ink-600">
-            Track registration payments recorded before medical screening.
-          </p>
+      <header className="rounded-sm border border-ink-200 bg-white p-5">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-500">Payment operations</p>
+            <h1 className="mt-2 font-display text-4xl font-medium text-ink-950">Payments</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-600">
+              Review recorded payments, approve the payment gate, and send handlers onward to medical screening without blocking the workflow on finance.
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/dashboard/registrations/new">
+              <CreditCard className="mr-2 h-4 w-4" />
+              New registration
+            </Link>
+          </Button>
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric icon={WalletCards} label="Total captured" value={`NGN ${total.toLocaleString()}`} detail="In current result set" />
-        <Metric icon={ReceiptText} label="Recorded" value={`${recordedCount}`} detail="Awaiting finance review" />
+        <Metric icon={ReceiptText} label="Recorded" value={`${recordedCount}`} detail="Awaiting registrar decision" />
+        <Metric icon={ShieldCheck} label="Approved" value={`${approvedCount}`} detail="Ready for medical screening" />
         <Metric icon={CreditCard} label="Cash payments" value={`${cashCount}`} detail="Recorded as cash" />
       </section>
 
-      <section className="rounded-sm border border-ink-200 bg-white">
+      <section className="rounded-sm border border-ink-200 bg-white p-4">
         {paymentError && (
-          <div className="border-b border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <div className="mb-4 rounded-sm border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
             {paymentError}
           </div>
         )}
         <form
           action="/dashboard/payments"
-          className="flex flex-col gap-3 border-b border-ink-100 p-4 lg:flex-row lg:items-center lg:justify-between"
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]"
         >
-          <div className="relative max-w-xl flex-1">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
             <Input
               name="q"
@@ -111,97 +129,90 @@ export default async function PaymentsPage({
             />
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="outline" size="sm">
+          <div className="flex gap-2">
+            <Button type="submit" size="sm">
               <Search className="mr-2 h-3.5 w-3.5" />
               Search
             </Button>
-            <Button asChild variant={statusFilter === 'RECORDED' ? 'default' : 'outline'} size="sm">
-              <Link href={buildPaymentsHref({ q, status: 'RECORDED' })}>
-                <Filter className="mr-2 h-3.5 w-3.5" />
-                Recorded
-              </Link>
-            </Button>
             {(q || statusFilter) && (
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="outline" size="sm">
                 <Link href="/dashboard/payments">Clear</Link>
               </Button>
             )}
           </div>
         </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {STATUS_TABS.map((tab) => (
+            <Button key={tab.value || 'all'} asChild size="sm" variant={(statusFilter ?? '') === tab.value ? 'default' : 'outline'}>
+              <Link href={buildPaymentsHref({ q, status: tab.value || undefined })}>
+                {tab.value === 'RECORDED' && <Filter className="mr-2 h-3.5 w-3.5" />}
+                {tab.label}
+              </Link>
+            </Button>
+          ))}
+        </div>
+      </section>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-ink-50 text-left text-[11px] uppercase tracking-[0.14em] text-ink-500">
-              <tr>
-                <th className="px-5 py-3 font-medium">Handler</th>
-                <th className="px-5 py-3 font-medium">Amount</th>
-                <th className="px-5 py-3 font-medium">Method</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Paid</th>
-                <th className="px-5 py-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {loadError && (
-                <tr>
-                  <td className="px-5 py-8 text-sm text-danger" colSpan={6}>{loadError}</td>
-                </tr>
-              )}
-              {!loadError && items.length === 0 && (
-                <tr>
-                  <td className="px-5 py-8 text-sm text-ink-500" colSpan={6}>
-                    {q || statusFilter ? 'No payments match this filter.' : 'No payments recorded yet.'}
-                  </td>
-                </tr>
-              )}
-              {items.map((payment) => {
-                const status = displayStatus(payment.status);
-                return (
-                  <tr key={payment.id} className="hover:bg-ink-50/70">
-                    <td className="px-5 py-4">
+      <section className="rounded-sm border border-ink-200 bg-white">
+        <div className="flex items-center gap-3 border-b border-ink-100 p-5">
+          <ReceiptText className="h-4 w-4 text-accent" />
+          <h2 className="text-base font-semibold text-ink-900">Payment queue</h2>
+        </div>
+        {loadError && <p className="p-5 text-sm text-danger">{loadError}</p>}
+        {!loadError && items.length === 0 && (
+          <p className="p-5 text-sm text-ink-500">
+            {q || statusFilter ? 'No payments match this filter.' : 'No payments recorded yet.'}
+          </p>
+        )}
+        <div className="grid gap-4 p-5">
+          {items.map((payment) => {
+            const status = displayStatus(payment.status);
+            return (
+              <div key={payment.id} className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm xl:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
                       <p className="font-medium text-ink-900">{payment.handlerName}</p>
                       <p className="mt-1 text-xs text-ink-500">{payment.tradeCategory || 'No category'}</p>
                       <p className="mt-1 font-mono text-xs text-ink-500">
                         {payment.registrationUid ?? payment.receiptNumber ?? payment.reference ?? payment.id}
                       </p>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-ink-900">
+                    </div>
+                    <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
+                      {status}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs text-ink-600">
+                    <span className="rounded-sm bg-ink-50 px-2.5 py-1 font-semibold text-ink-900">
                       {payment.currency} {Number(payment.amount).toLocaleString()}
-                    </td>
-                    <td className="px-5 py-4 text-ink-700">{displayMethod(payment.method)}</td>
-                    <td className="px-5 py-4">
-                      <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-ink-600">{formatDate(payment.paidAt)}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        {canApprovePayment &&
-                          payment.status === 'RECORDED' &&
-                          !payment.registrationHasApprovedPayment && (
-                          <form action={approvePaymentFromListAction}>
-                            <input type="hidden" name="paymentId" value={payment.id} />
-                            <input type="hidden" name="registrationId" value={payment.handlerRegistrationId} />
-                            <Button type="submit" variant="outline" size="sm">
-                              <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                              Approve
-                            </Button>
-                          </form>
-                        )}
-                        <Button asChild variant="ghost" size="icon" aria-label={`Open ${payment.handlerName}`}>
-                          <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
-                            <ArrowRight className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </span>
+                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">{displayMethod(payment.method)}</span>
+                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">Paid {formatDate(payment.paidAt)}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  {canApprovePayment &&
+                    payment.status === 'RECORDED' &&
+                    !payment.registrationHasApprovedPayment && (
+                    <form action={approvePaymentFromListAction}>
+                      <input type="hidden" name="paymentId" value={payment.id} />
+                      <input type="hidden" name="registrationId" value={payment.handlerRegistrationId} />
+                      <Button type="submit" variant="outline" size="sm">
+                        <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                        Approve
+                      </Button>
+                    </form>
+                  )}
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
+                      Open
+                      <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>
