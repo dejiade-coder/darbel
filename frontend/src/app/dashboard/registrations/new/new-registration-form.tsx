@@ -106,6 +106,7 @@ export function NewRegistrationForm({
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const isEditing = Boolean(registration);
   const isBusy = isSaving || isSubmitting || isCancelling;
@@ -200,11 +201,12 @@ export function NewRegistrationForm({
   }
 
   async function cancelDraft() {
-    if (!registrationId || !window.confirm('Cancel this draft registration?')) return;
+    if (!registrationId) return;
     setIsCancelling(true);
     try {
       const cancelled = await cancelRegistrationAction(registrationId);
       setStatus(cancelled.status);
+      setShowCancelConfirm(false);
       window.localStorage.removeItem(DRAFT_KEY);
       setNotice({ type: 'success', message: 'Draft registration cancelled.' });
     } catch (error) {
@@ -299,7 +301,7 @@ export function NewRegistrationForm({
                 {isSubmitting ? 'Submitting' : 'Proceed to payment'}
               </button>
               {canCancel && (
-                <button type="button" onClick={cancelDraft} disabled={isBusy} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-red-200 px-5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60">
+                <button type="button" onClick={() => setShowCancelConfirm(true)} disabled={isBusy} className="inline-flex h-11 items-center justify-center rounded-[8px] border border-red-200 px-5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60">
                   <Ban className="mr-2 h-4 w-4" />
                   Cancel
                 </button>
@@ -326,6 +328,35 @@ export function NewRegistrationForm({
           </aside>
         </form>
       </div>
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/40 px-4">
+          <div className="w-full max-w-md rounded-[8px] border border-ink-200 bg-white p-5 shadow-xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600">Cancel draft</p>
+            <h2 className="mt-2 font-display text-2xl font-medium text-ink-950">{fullName}</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-600">
+              This will cancel the draft registration and remove the saved local draft from this browser.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => setShowCancelConfirm(false)}
+                className="inline-flex h-10 items-center justify-center rounded-[8px] border border-ink-300 px-4 text-sm font-semibold text-ink-700 transition hover:border-[#0f766e] hover:text-[#0f766e] disabled:opacity-60"
+              >
+                Keep draft
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={cancelDraft}
+                className="inline-flex h-10 items-center justify-center rounded-[8px] bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel draft'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
