@@ -79,7 +79,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
   const signatures = template?.signatures ?? { hod: null, deputyHod: null };
 
   return (
-    <div className="min-h-screen bg-parchment px-6 py-8 print:bg-white print:p-0">
+    <div className="certificate-print-shell min-h-screen bg-parchment px-6 py-8 print:bg-white print:p-0">
       <div className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-3 print:hidden">
         <Button asChild variant="outline">
           <Link href="/dashboard/certificates">
@@ -98,7 +98,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
 
       {result && template?.isApproved && template.mimeType.startsWith('image/') && (
         <main
-          className="relative mx-auto min-h-[760px] max-w-5xl overflow-hidden bg-white shadow-sm print:min-h-screen print:max-w-none print:shadow-none"
+          className="certificate-sheet certificate-template-sheet relative mx-auto overflow-hidden bg-white shadow-sm"
           style={{
             backgroundImage: `url(${templateFileUrl})`,
             backgroundSize: 'cover',
@@ -133,6 +133,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
           >
             <div>
               {layout.showTradeCategory && <p>{result.tradeCategory || 'Not listed'}</p>}
+              {layout.showStatus && <p className="font-medium">{result.status}</p>}
               {(layout.showIssuedDate || layout.showExpiryDate) && (
                 <p>
                   {layout.showIssuedDate && `Issued ${formatDate(result.issuedAt)}`}
@@ -141,31 +142,21 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                 </p>
               )}
             </div>
-            {layout.showVerification && (
-              <div className="flex max-w-sm items-end gap-3 text-right">
-                <div className="shrink-0 bg-white p-1">
-                  <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
-                </div>
-                <div className="max-w-32">
-                  {layout.showUid && <p className="font-mono text-xs text-ink-700">{result.uid}</p>}
-                  {layout.showOfficerScanLabel && <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
-                </div>
-              </div>
-            )}
+            <CertificateCodeBlock layout={layout} uid={result.uid} officerScanUrl={officerScanUrl} />
           </div>
           {layout.showSignatures && <SignatureOverlay layout={layout} signatures={signatures} />}
         </main>
       )}
 
       {result && template?.isApproved && template.mimeType === 'application/pdf' && (
-        <main className="relative mx-auto min-h-[760px] max-w-5xl overflow-hidden bg-white shadow-sm print:min-h-screen print:max-w-none print:shadow-none">
+        <main className="certificate-sheet certificate-template-sheet relative mx-auto overflow-hidden bg-white shadow-sm">
           <iframe
             src={templateFileUrl}
             title="Approved certificate template"
             className="absolute inset-0 h-full w-full border-0"
           />
           <div
-            className="absolute bg-white/75 py-6 text-center print:bg-white/80"
+            className="absolute bg-white/75 px-4 py-5 text-center print:bg-white/80"
             style={{
               left: `${layout.nameLeftPercent}%`,
               width: `${layout.nameWidthPercent}%`,
@@ -192,6 +183,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
           >
             <div>
               {layout.showTradeCategory && <p>{result.tradeCategory || 'Not listed'}</p>}
+              {layout.showStatus && <p className="font-medium">{result.status}</p>}
               {(layout.showIssuedDate || layout.showExpiryDate) && (
                 <p>
                   {layout.showIssuedDate && `Issued ${formatDate(result.issuedAt)}`}
@@ -200,25 +192,15 @@ export default async function CertificatePrintPage({ params }: { params: Promise
                 </p>
               )}
             </div>
-            {layout.showVerification && (
-              <div className="flex max-w-sm items-end gap-3 text-right">
-                <div className="shrink-0 bg-white p-1">
-                  <QRCodeSVG value={officerScanUrl} size={72} level="M" includeMargin={false} />
-                </div>
-                <div className="max-w-32">
-                  {layout.showUid && <p className="font-mono text-xs text-ink-700">{result.uid}</p>}
-                  {layout.showOfficerScanLabel && <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
-                </div>
-              </div>
-            )}
+            <CertificateCodeBlock layout={layout} uid={result.uid} officerScanUrl={officerScanUrl} />
           </div>
           {layout.showSignatures && <SignatureOverlay layout={layout} signatures={signatures} panel />}
         </main>
       )}
 
       {result && (!template?.isApproved || (!template.mimeType.startsWith('image/') && template.mimeType !== 'application/pdf')) && (
-        <main className="mx-auto max-w-5xl bg-white p-10 shadow-sm print:min-h-screen print:max-w-none print:p-12 print:shadow-none">
-          <section className="border-4 border-double border-ink-900 p-8">
+        <main className="certificate-sheet mx-auto bg-white p-10 shadow-sm">
+          <section className="flex h-full flex-col border-4 border-double border-ink-900 p-8">
             <div className="flex items-start justify-between gap-8 border-b border-ink-200 pb-6">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.22em] text-ink-500">Darbel Compliance Registry</p>
@@ -230,7 +212,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
               </div>
             </div>
 
-            <div className="py-12 text-center">
+            <div className="flex-1 py-10 text-center">
               {layout.showName && <p className="font-display text-6xl font-medium text-ink-950">{result.handlerName}</p>}
               <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-ink-700">
                 has completed the required registration, payment confirmation, and medical screening workflow for food handler compliance.
@@ -247,15 +229,7 @@ export default async function CertificatePrintPage({ params }: { params: Promise
             {layout.showSignatures && <SignatureRow signatures={signatures} showLabels={layout.showSignatureLabels} />}
 
             <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-              <div>
-                {layout.showOfficerScanLabel && <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Officer scan only</p>}
-                {layout.showUid && <p className="mt-2 font-mono text-sm text-ink-700">{result.uid}</p>}
-                {layout.showVerification && (
-                  <div className="mt-3 inline-block bg-white p-2">
-                    <QRCodeSVG value={officerScanUrl} size={92} level="M" includeMargin={false} />
-                  </div>
-                )}
-              </div>
+              <CertificateCodeBlock layout={layout} uid={result.uid} officerScanUrl={officerScanUrl} large />
               <div className="min-w-56 border-t border-ink-900 pt-3 text-center">
                 <p className="text-sm font-medium text-ink-900">Authorized compliance officer</p>
               </div>
@@ -263,6 +237,33 @@ export default async function CertificatePrintPage({ params }: { params: Promise
           </section>
         </main>
       )}
+    </div>
+  );
+}
+
+function CertificateCodeBlock({
+  layout,
+  uid,
+  officerScanUrl,
+  large = false,
+}: {
+  layout: CertificateTemplateLayout;
+  uid: string;
+  officerScanUrl: string;
+  large?: boolean;
+}) {
+  if (!layout.showVerification && !layout.showUid && !layout.showOfficerScanLabel) return null;
+  return (
+    <div className={`certificate-code-block flex shrink-0 items-end gap-3 text-right ${large ? 'max-w-xs flex-row-reverse text-left md:flex-row md:text-right' : 'max-w-sm'}`}>
+      {layout.showVerification && (
+        <div className="shrink-0 bg-white p-1.5">
+          <QRCodeSVG value={officerScanUrl} size={large ? 92 : 72} level="M" includeMargin={false} />
+        </div>
+      )}
+      <div className={large ? 'max-w-40' : 'max-w-32'}>
+        {layout.showUid && <p className="font-mono text-xs text-ink-700">{uid}</p>}
+        {layout.showOfficerScanLabel && <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-ink-500">Officer scan only</p>}
+      </div>
     </div>
   );
 }
@@ -315,7 +316,6 @@ function SignatureOverlay({
   signatures: CertificateTemplateSignatures;
   panel?: boolean;
 }) {
-  if (!signatures.hod && !signatures.deputyHod) return null;
   return (
     <div
       className={`absolute grid grid-cols-2 gap-8 text-center text-ink-900 ${panel ? 'bg-white/75 p-4 print:bg-white/80' : ''}`}
@@ -333,7 +333,6 @@ function SignatureOverlay({
 }
 
 function SignatureRow({ signatures, showLabels }: { signatures: CertificateTemplateSignatures; showLabels: boolean }) {
-  if (!signatures.hod && !signatures.deputyHod) return null;
   return (
     <div className="mt-8 grid gap-10 text-center md:grid-cols-2">
       <PrintedSignature slot="hod" signature={signatures.hod} showLabel={showLabels} />
@@ -355,12 +354,14 @@ function PrintedSignature({
   return (
     <div>
       <div className="flex h-16 items-end justify-center">
-        {signature && (
+        {signature ? (
           <img
             src={signatureFileUrl(slot, signature.uploadedAt)}
             alt={`${label} signature`}
             className="max-h-16 max-w-full object-contain"
           />
+        ) : (
+          <span className="text-[10px] uppercase tracking-[0.14em] text-ink-400">{label} signature</span>
         )}
       </div>
       {showLabel && (

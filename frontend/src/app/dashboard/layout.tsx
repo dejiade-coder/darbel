@@ -22,16 +22,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen bg-parchment">
-      <Sidebar permissions={actor.permissions} />
-      <div className="flex flex-1 flex-col">
-        <TopBar
-          fullName={profile?.fullName ?? actor.email}
-          email={actor.email}
-          isPlatformOperator={actor.isPlatformOperator}
-          mfaEnabled={profile?.mfaEnabled ?? false}
-        />
-        <main className="flex-1 px-8 py-8">
-          <div className="mx-auto max-w-7xl animate-fade-in">{children}</div>
+      <div className="print:hidden">
+        <Sidebar permissions={actor.permissions} />
+      </div>
+      <div className="flex flex-1 flex-col print:block print:w-full">
+        <div className="print:hidden">
+          <TopBar
+            fullName={profile?.fullName ?? actor.email}
+            email={actor.email}
+            isPlatformOperator={actor.isPlatformOperator}
+            mfaEnabled={profile?.mfaEnabled ?? false}
+          />
+        </div>
+        <main className="flex-1 px-8 py-8 print:p-0">
+          <div className="mx-auto max-w-7xl animate-fade-in print:max-w-none print:animate-none">{children}</div>
         </main>
       </div>
     </div>

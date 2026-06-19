@@ -98,3 +98,50 @@
     @apply border-t border-ink-200;
   }
 }
+
+.certificate-sheet {
+  aspect-ratio: 297 / 210;
+  min-height: 720px;
+  width: min(100%, 1120px);
+}
+
+.certificate-template-sheet {
+  background-repeat: no-repeat;
+}
+
+.certificate-code-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@page certificate {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 297mm;
+    min-height: 210mm;
+    background: #fff !important;
+  }
+
+  .certificate-print-shell {
+    page: certificate;
+    width: 297mm;
+    min-height: 210mm;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .certificate-sheet {
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
