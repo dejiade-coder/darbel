@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Search, ShieldCheck, UserCheck, UserPlus, UsersRound, UserX } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
 import type { UserListResponse } from '@/lib/api/types';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +14,14 @@ export const metadata = { title: 'Users' };
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; cursor?: string };
+  searchParams?: { q?: string; isActive?: string; cursor?: string; success?: string; error?: string };
 }) {
   const actor = await readActorFromAccessToken();
   if (!actor) return null;
 
   const params = new URLSearchParams();
   if (searchParams?.q) params.set('q', searchParams.q);
+  if (searchParams?.isActive) params.set('isActive', searchParams.isActive);
   if (searchParams?.cursor) params.set('cursor', searchParams.cursor);
   params.set('limit', '25');
 
@@ -34,6 +36,11 @@ export default async function UsersPage({
   }
 
   const canCreate = actor.permissions.includes('user.create');
+  const users = data?.items ?? [];
+  const activeCount = users.filter((user) => user.isActive && !user.isLocked && !user.mustChangePassword).length;
+  const pendingCount = users.filter((user) => user.mustChangePassword).length;
+  const inactiveCount = users.filter((user) => !user.isActive || user.isLocked).length;
+  const roleCount = new Set(users.flatMap((user) => user.roles.map((role) => role.code))).size;
 
   return (
     <>
@@ -44,29 +51,63 @@ export default async function UsersPage({
         action={
           canCreate ? (
             <Button asChild>
-              <Link href="/dashboard/users/new">Invite user</Link>
+              <Link href="/dashboard/users/new">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite user
+              </Link>
             </Button>
           ) : undefined
         }
       />
 
+      {searchParams?.error && <Alert variant="danger">{searchParams.error}</Alert>}
+      {searchParams?.success && <Alert variant="success">{searchParams.success}</Alert>}
       {error && (
         <Alert variant="danger" title="Could not load users">
           {error}
         </Alert>
       )}
 
-      <form className="mb-4 flex max-w-md gap-2" action="/dashboard/users">
-        <input
-          name="q"
-          defaultValue={searchParams?.q ?? ''}
-          placeholder="Search by name or email"
-          className="flex h-10 flex-1 rounded-sm border border-ink-200 bg-white px-3 text-sm placeholder:text-ink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        />
-        <Button type="submit" variant="outline">
-          Search
-        </Button>
-      </form>
+      <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric icon={UsersRound} label="Loaded users" value={String(users.length)} detail={data?.nextCursor ? 'More users available' : 'Current result set'} />
+        <Metric icon={UserCheck} label="Active" value={String(activeCount)} detail="ready to sign in" />
+        <Metric icon={ShieldCheck} label="Roles represented" value={String(roleCount)} detail="in this view" />
+        <Metric icon={UserX} label="Needs attention" value={String(pendingCount + inactiveCount)} detail={`${pendingCount} pending, ${inactiveCount} inactive/locked`} warning={pendingCount + inactiveCount > 0} />
+      </section>
+
+      <section className="mb-4 rounded-sm border border-ink-200 bg-white p-4">
+        <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]" action="/dashboard/users">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+            <input
+              name="q"
+              defaultValue={searchParams?.q ?? ''}
+              placeholder="Search by name or email"
+              className="flex h-10 w-full rounded-sm border border-ink-200 bg-white pl-9 pr-3 text-sm placeholder:text-ink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          </div>
+          {searchParams?.isActive && <input type="hidden" name="isActive" value={searchParams.isActive} />}
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+          {(searchParams?.q || searchParams?.isActive) && (
+            <Button asChild variant="ghost">
+              <Link href="/dashboard/users">Clear</Link>
+            </Button>
+          )}
+        </form>
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-100 pt-4">
+          <Button asChild variant={!searchParams?.isActive ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: searchParams?.q })}>All users</Link>
+          </Button>
+          <Button asChild variant={searchParams?.isActive === 'true' ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: searchParams?.q, isActive: 'true' })}>Active</Link>
+          </Button>
+          <Button asChild variant={searchParams?.isActive === 'false' ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: searchParams?.q, isActive: 'false' })}>Inactive</Link>
+          </Button>
+        </div>
+      </section>
 
       {data && (
         <div className="overflow-hidden rounded-sm border border-ink-200 bg-white">
@@ -140,7 +181,11 @@ export default async function UsersPage({
             <Link
               href={{
                 pathname: '/dashboard/users',
-                query: { ...(searchParams?.q ? { q: searchParams.q } : {}), cursor: data.nextCursor },
+                query: {
+                  ...(searchParams?.q ? { q: searchParams.q } : {}),
+                  ...(searchParams?.isActive ? { isActive: searchParams.isActive } : {}),
+                  cursor: data.nextCursor,
+                },
               }}
             >
               Load more
@@ -150,6 +195,39 @@ export default async function UsersPage({
       )}
     </>
   );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  warning = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  detail: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="rounded-sm border border-ink-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <Icon className={warning ? 'h-5 w-5 text-warning' : 'h-5 w-5 text-accent'} />
+        <Badge variant={warning ? 'warning' : 'outline'}>{label}</Badge>
+      </div>
+      <p className="mt-4 font-display text-3xl font-medium text-ink-950">{value}</p>
+      <p className="mt-1 text-xs text-ink-500">{detail}</p>
+    </div>
+  );
+}
+
+function usersHref({ q, isActive }: { q?: string; isActive?: string }) {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (isActive) params.set('isActive', isActive);
+  const query = params.toString();
+  return query ? `/dashboard/users?${query}` : '/dashboard/users';
 }
 
 function Th({ children }: { children: React.ReactNode }) {
