@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Gavel, Mail, MessageCircle, Printer, RotateCcw, ShieldCheck, ShieldX } from 'lucide-react';
@@ -37,16 +38,17 @@ export function CertificateActions({
   const printUrl = `/dashboard/certificates/${encodeURIComponent(item.uid)}/print`;
   const mailUrl = buildMailLink(item);
   const whatsAppUrl = buildWhatsAppLink(item);
+  const isRevoked = item.status === 'REVOKED';
+  const isUnderAppeal = item.status === 'UNDER_APPEAL';
+  const canDeliver = !isRevoked && !isUnderAppeal;
 
-  function recordAndOpen(channel: DeliveryChannel, url: string, mode: 'same-tab' | 'new-tab' | 'location') {
+  function recordAndOpen(channel: DeliveryChannel, url: string, mode: 'new-tab' | 'location') {
     const targetWindow = mode === 'new-tab' ? window.open('about:blank', '_blank') : null;
     startTransition(async () => {
       try {
         await recordDelivery(item, channel, url);
         router.refresh();
-        if (mode === 'same-tab') {
-          router.push(url);
-        } else if (mode === 'location') {
+        if (mode === 'location') {
           window.location.href = url;
         } else if (targetWindow) {
           targetWindow.location.href = url;
@@ -57,6 +59,13 @@ export function CertificateActions({
         if (targetWindow) targetWindow.close();
         setFormError(error instanceof Error ? error.message : 'Failed to record certificate delivery.');
       }
+    });
+  }
+
+  function recordPrintInBackground() {
+    setFormError('');
+    void recordDelivery(item, 'PRINT', printUrl).catch((error) => {
+      setFormError(error instanceof Error ? error.message : 'Failed to record certificate print.');
     });
   }
 
@@ -98,10 +107,6 @@ export function CertificateActions({
       }
     });
   }
-
-  const isRevoked = item.status === 'REVOKED';
-  const isUnderAppeal = item.status === 'UNDER_APPEAL';
-  const canDeliver = !isRevoked && !isUnderAppeal;
 
   function submitAppeal() {
     const trimmed = appealReason.trim();
@@ -150,16 +155,19 @@ export function CertificateActions({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isPending || !canDeliver}
-        onClick={() => recordAndOpen('PRINT', printUrl, 'same-tab')}
-      >
-        <Printer className="mr-2 h-3.5 w-3.5" />
-        Print
-      </Button>
+      {canDeliver ? (
+        <Button asChild variant="outline" size="sm">
+          <Link href={printUrl} onClick={recordPrintInBackground}>
+            <Printer className="mr-2 h-3.5 w-3.5" />
+            Print
+          </Link>
+        </Button>
+      ) : (
+        <Button type="button" variant="outline" size="sm" disabled>
+          <Printer className="mr-2 h-3.5 w-3.5" />
+          Print
+        </Button>
+      )}
       <Button
         type="button"
         variant="outline"
@@ -255,13 +263,12 @@ export function CertificateActions({
           </Button>
         </>
       )}
+      {!mode && formError && <p className="basis-full rounded-sm border border-danger/25 bg-danger/5 p-3 text-sm text-danger">{formError}</p>}
       {mode && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/40 px-4">
           <div className="w-full max-w-md rounded-sm border border-ink-200 bg-white p-5 shadow-xl">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">
-                {dialogTitle(mode)}
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">{dialogTitle(mode)}</p>
               <h2 className="mt-1 font-display text-2xl font-medium text-ink-950">{item.uid}</h2>
               <p className="mt-1 text-sm text-ink-600">{item.handlerName}</p>
             </div>
@@ -357,6 +364,7 @@ async function recordDelivery(
   const res = await fetch('/dashboard/certificates/deliveries', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    keepalive: true,
     body: JSON.stringify({
       certificateId: item.id,
       channel,
@@ -379,7 +387,6 @@ async function revokeCertificateRequest(certificateId: string, reason: string): 
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ certificateId, reason }),
   });
-
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to revoke certificate.');
@@ -392,7 +399,6 @@ async function renewCertificateRequest(certificateId: string, validityDays: numb
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ certificateId, validityDays }),
   });
-
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to renew certificate.');
@@ -405,7 +411,6 @@ async function appealCertificateRequest(certificateId: string, reason: string): 
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ certificateId, reason }),
   });
-
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to submit certificate appeal.');
@@ -423,7 +428,6 @@ async function reviewCertificateAppealRequest(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ certificateId, decision, notes, validityDays }),
   });
-
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? 'Failed to review certificate appeal.');
@@ -443,7 +447,7 @@ function buildMailLink(item: Certificate): string {
     '',
     'Your Darbel compliance certificate is ready.',
     `Certificate UID: ${item.uid}`,
-    `Authorized officers can scan the barcode on the printed certificate to view handler details.`,
+    'Authorized officers can scan the barcode on the printed certificate to view handler details.',
   ].join('\n');
   const recipient = item.handlerEmail ? encodeURIComponent(item.handlerEmail) : '';
   return `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
