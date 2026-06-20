@@ -361,7 +361,9 @@ function PrintedSignature({
             className="max-h-16 max-w-full object-contain"
           />
         ) : (
-          <span className="text-[10px] uppercase tracking-[0.14em] text-ink-400">{label} signature</span>
+          <span className="text-center text-[10px] uppercase tracking-[0.14em] text-ink-400">
+            No {label} signature uploaded
+          </span>
         )}
       </div>
       {showLabel && (

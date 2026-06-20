@@ -686,7 +686,7 @@ function SignatureUpload({
         </div>
       </div>
       <div className="rounded-sm border border-ink-100 bg-ink-50/60 p-3">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-500">Current preview</p>
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-500">{label} slot preview</p>
         <SignaturePreview slot={slot} signature={signature} showLabel cacheVersion={cacheVersion} />
       </div>
     </div>
@@ -708,11 +708,16 @@ function SignaturePreview({
   const src = signature ? signatureFileUrl(slot, signature.uploadedAt, cacheVersion) : '';
   return (
     <div>
+      <p className="mb-2 text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-accent">
+        {label}
+      </p>
       <div className="flex h-10 items-end justify-center">
         {signature ? (
           <img src={src} alt={`${label} signature`} className="max-h-10 max-w-full object-contain" />
         ) : (
-          <span className="text-[9px] uppercase tracking-[0.14em] text-ink-400">{label} signature</span>
+          <span className="text-center text-[9px] uppercase tracking-[0.14em] text-ink-400">
+            No {label} signature uploaded yet
+          </span>
         )}
       </div>
       {showLabel && (
