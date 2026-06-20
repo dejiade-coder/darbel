@@ -14,8 +14,9 @@ export const metadata = { title: 'Invite user' };
 export default async function NewUserPage({
   searchParams,
 }: {
-  searchParams?: { error?: string; success?: string };
+  searchParams?: { error?: string; success?: string } | Promise<{ error?: string; success?: string }>;
 }) {
+  const params = await Promise.resolve(searchParams);
   let roles: RolePublic[] = [];
   let loadError = '';
   try {
@@ -50,8 +51,8 @@ export default async function NewUserPage({
         </div>
       </header>
 
-      {searchParams?.error && <Alert variant="danger">{searchParams.error}</Alert>}
-      {searchParams?.success && <Alert variant="success">{searchParams.success}</Alert>}
+      {params?.error && <Alert variant="danger">{params.error}</Alert>}
+      {params?.success && <Alert variant="success">{params.success}</Alert>}
       {loadError && <Alert variant="danger">{loadError}</Alert>}
 
       <form action={createUserAction} className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">

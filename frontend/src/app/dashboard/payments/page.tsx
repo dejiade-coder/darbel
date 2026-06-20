@@ -49,15 +49,16 @@ const STATUS_TABS: Array<{ label: string; value: Payment['status'] | '' }> = [
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams?: PaymentsSearchParams;
+  searchParams?: PaymentsSearchParams | Promise<PaymentsSearchParams>;
 }) {
+  const params = await Promise.resolve(searchParams);
   const actor = await readActorFromAccessToken();
   const canApprovePayment = actor?.permissions.includes('payment.approve') ?? false;
   let items: Payment[] = [];
   let loadError = '';
-  const q = searchParams?.q?.trim() ?? '';
-  const statusFilter = searchParams?.status;
-  const paymentError = searchParams?.paymentError?.trim() ?? '';
+  const q = params?.q?.trim() ?? '';
+  const statusFilter = params?.status;
+  const paymentError = params?.paymentError?.trim() ?? '';
   const apiParams = new URLSearchParams();
   if (q) apiParams.set('q', q);
   if (statusFilter) apiParams.set('status', statusFilter);

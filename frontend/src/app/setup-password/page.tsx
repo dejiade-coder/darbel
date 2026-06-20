@@ -9,8 +9,9 @@ export const metadata = { title: 'Set a new password' };
 export default async function SetupPasswordPage({
   searchParams,
 }: {
-  searchParams?: { error?: string };
+  searchParams?: { error?: string } | Promise<{ error?: string }>;
 }) {
+  const params = await Promise.resolve(searchParams);
   const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'password_change_required') {
     redirect('/login');
@@ -20,7 +21,7 @@ export default async function SetupPasswordPage({
       title="Set a new password"
       subtitle="Before you continue, please replace the temporary password issued to you."
     >
-      <SetupPasswordForm action={setupPasswordAction} initialError={searchParams?.error} />
+      <SetupPasswordForm action={setupPasswordAction} initialError={params?.error} />
     </AuthShell>
   );
 }

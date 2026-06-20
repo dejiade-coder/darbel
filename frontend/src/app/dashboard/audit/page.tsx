@@ -24,20 +24,29 @@ const QUICK_TABLES = [
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams?: {
-    action?: string;
-    tableName?: string;
-    fromDate?: string;
-    toDate?: string;
-    cursor?: string;
-  };
+  searchParams?:
+    | {
+        action?: string;
+        tableName?: string;
+        fromDate?: string;
+        toDate?: string;
+        cursor?: string;
+      }
+    | Promise<{
+        action?: string;
+        tableName?: string;
+        fromDate?: string;
+        toDate?: string;
+        cursor?: string;
+      }>;
 }) {
+  const resolvedSearchParams = await Promise.resolve(searchParams);
   const params = new URLSearchParams();
-  if (searchParams?.action) params.set('action', searchParams.action);
-  if (searchParams?.tableName) params.set('tableName', searchParams.tableName);
-  if (searchParams?.fromDate) params.set('fromDate', searchParams.fromDate);
-  if (searchParams?.toDate) params.set('toDate', searchParams.toDate);
-  if (searchParams?.cursor) params.set('cursor', searchParams.cursor);
+  if (resolvedSearchParams?.action) params.set('action', resolvedSearchParams.action);
+  if (resolvedSearchParams?.tableName) params.set('tableName', resolvedSearchParams.tableName);
+  if (resolvedSearchParams?.fromDate) params.set('fromDate', resolvedSearchParams.fromDate);
+  if (resolvedSearchParams?.toDate) params.set('toDate', resolvedSearchParams.toDate);
+  if (resolvedSearchParams?.cursor) params.set('cursor', resolvedSearchParams.cursor);
   params.set('limit', '50');
 
   let data: AuditListResponse | null = null;
@@ -53,10 +62,10 @@ export default async function AuditPage({
   const items = data?.items ?? [];
   const summary = buildSummary(items);
   const activeFilters = [
-    searchParams?.action ? `Action: ${searchParams.action}` : null,
-    searchParams?.tableName ? `Table: ${searchParams.tableName}` : null,
-    searchParams?.fromDate ? `From: ${searchParams.fromDate}` : null,
-    searchParams?.toDate ? `To: ${searchParams.toDate}` : null,
+    resolvedSearchParams?.action ? `Action: ${resolvedSearchParams.action}` : null,
+    resolvedSearchParams?.tableName ? `Table: ${resolvedSearchParams.tableName}` : null,
+    resolvedSearchParams?.fromDate ? `From: ${resolvedSearchParams.fromDate}` : null,
+    resolvedSearchParams?.toDate ? `To: ${resolvedSearchParams.toDate}` : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -91,7 +100,7 @@ export default async function AuditPage({
             </label>
             <select
               name="action"
-              defaultValue={searchParams?.action ?? ''}
+              defaultValue={resolvedSearchParams?.action ?? ''}
               className="h-10 w-full rounded-sm border border-ink-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <option value="">All</option>
@@ -108,13 +117,13 @@ export default async function AuditPage({
             </label>
             <input
               name="tableName"
-              defaultValue={searchParams?.tableName ?? ''}
+              defaultValue={resolvedSearchParams?.tableName ?? ''}
               placeholder="e.g. certificates"
               className="h-10 w-full rounded-sm border border-ink-200 bg-white px-3 text-sm placeholder:text-ink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             />
           </div>
-          <DateField name="fromDate" label="From" value={searchParams?.fromDate ?? ''} />
-          <DateField name="toDate" label="To" value={searchParams?.toDate ?? ''} />
+          <DateField name="fromDate" label="From" value={resolvedSearchParams?.fromDate ?? ''} />
+          <DateField name="toDate" label="To" value={resolvedSearchParams?.toDate ?? ''} />
           <div className="flex items-end gap-2">
             <Button type="submit" variant="outline">
               Filter
@@ -129,7 +138,7 @@ export default async function AuditPage({
 
         <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-100 pt-4">
           {QUICK_TABLES.map((table) => (
-            <Button key={table.value} asChild variant={searchParams?.tableName === table.value ? 'default' : 'outline'} size="sm">
+            <Button key={table.value} asChild variant={resolvedSearchParams?.tableName === table.value ? 'default' : 'outline'} size="sm">
               <Link href={`/dashboard/audit?tableName=${encodeURIComponent(table.value)}`}>{table.label}</Link>
             </Button>
           ))}
@@ -221,10 +230,10 @@ export default async function AuditPage({
               href={{
                 pathname: '/dashboard/audit',
                 query: {
-                  ...(searchParams?.action ? { action: searchParams.action } : {}),
-                  ...(searchParams?.tableName ? { tableName: searchParams.tableName } : {}),
-                  ...(searchParams?.fromDate ? { fromDate: searchParams.fromDate } : {}),
-                  ...(searchParams?.toDate ? { toDate: searchParams.toDate } : {}),
+                  ...(resolvedSearchParams?.action ? { action: resolvedSearchParams.action } : {}),
+                  ...(resolvedSearchParams?.tableName ? { tableName: resolvedSearchParams.tableName } : {}),
+                  ...(resolvedSearchParams?.fromDate ? { fromDate: resolvedSearchParams.fromDate } : {}),
+                  ...(resolvedSearchParams?.toDate ? { toDate: resolvedSearchParams.toDate } : {}),
                   cursor: data.nextCursor,
                 },
               }}

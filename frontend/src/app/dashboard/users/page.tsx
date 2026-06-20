@@ -14,15 +14,18 @@ export const metadata = { title: 'Users' };
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams?: { q?: string; isActive?: string; cursor?: string; success?: string; error?: string };
+  searchParams?:
+    | { q?: string; isActive?: string; cursor?: string; success?: string; error?: string }
+    | Promise<{ q?: string; isActive?: string; cursor?: string; success?: string; error?: string }>;
 }) {
+  const resolvedSearchParams = await Promise.resolve(searchParams);
   const actor = await readActorFromAccessToken();
   if (!actor) return null;
 
   const params = new URLSearchParams();
-  if (searchParams?.q) params.set('q', searchParams.q);
-  if (searchParams?.isActive) params.set('isActive', searchParams.isActive);
-  if (searchParams?.cursor) params.set('cursor', searchParams.cursor);
+  if (resolvedSearchParams?.q) params.set('q', resolvedSearchParams.q);
+  if (resolvedSearchParams?.isActive) params.set('isActive', resolvedSearchParams.isActive);
+  if (resolvedSearchParams?.cursor) params.set('cursor', resolvedSearchParams.cursor);
   params.set('limit', '25');
 
   let data: UserListResponse | null = null;
@@ -60,8 +63,8 @@ export default async function UsersPage({
         }
       />
 
-      {searchParams?.error && <Alert variant="danger">{searchParams.error}</Alert>}
-      {searchParams?.success && <Alert variant="success">{searchParams.success}</Alert>}
+      {resolvedSearchParams?.error && <Alert variant="danger">{resolvedSearchParams.error}</Alert>}
+      {resolvedSearchParams?.success && <Alert variant="success">{resolvedSearchParams.success}</Alert>}
       {error && (
         <Alert variant="danger" title="Could not load users">
           {error}
@@ -81,30 +84,30 @@ export default async function UsersPage({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
             <input
               name="q"
-              defaultValue={searchParams?.q ?? ''}
+              defaultValue={resolvedSearchParams?.q ?? ''}
               placeholder="Search by name or email"
               className="flex h-10 w-full rounded-sm border border-ink-200 bg-white pl-9 pr-3 text-sm placeholder:text-ink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             />
           </div>
-          {searchParams?.isActive && <input type="hidden" name="isActive" value={searchParams.isActive} />}
+          {resolvedSearchParams?.isActive && <input type="hidden" name="isActive" value={resolvedSearchParams.isActive} />}
           <Button type="submit" variant="outline">
             Search
           </Button>
-          {(searchParams?.q || searchParams?.isActive) && (
+          {(resolvedSearchParams?.q || resolvedSearchParams?.isActive) && (
             <Button asChild variant="ghost">
               <Link href="/dashboard/users">Clear</Link>
             </Button>
           )}
         </form>
         <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-100 pt-4">
-          <Button asChild variant={!searchParams?.isActive ? 'default' : 'outline'} size="sm">
-            <Link href={usersHref({ q: searchParams?.q })}>All users</Link>
+          <Button asChild variant={!resolvedSearchParams?.isActive ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: resolvedSearchParams?.q })}>All users</Link>
           </Button>
-          <Button asChild variant={searchParams?.isActive === 'true' ? 'default' : 'outline'} size="sm">
-            <Link href={usersHref({ q: searchParams?.q, isActive: 'true' })}>Active</Link>
+          <Button asChild variant={resolvedSearchParams?.isActive === 'true' ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: resolvedSearchParams?.q, isActive: 'true' })}>Active</Link>
           </Button>
-          <Button asChild variant={searchParams?.isActive === 'false' ? 'default' : 'outline'} size="sm">
-            <Link href={usersHref({ q: searchParams?.q, isActive: 'false' })}>Inactive</Link>
+          <Button asChild variant={resolvedSearchParams?.isActive === 'false' ? 'default' : 'outline'} size="sm">
+            <Link href={usersHref({ q: resolvedSearchParams?.q, isActive: 'false' })}>Inactive</Link>
           </Button>
         </div>
       </section>
@@ -182,8 +185,8 @@ export default async function UsersPage({
               href={{
                 pathname: '/dashboard/users',
                 query: {
-                  ...(searchParams?.q ? { q: searchParams.q } : {}),
-                  ...(searchParams?.isActive ? { isActive: searchParams.isActive } : {}),
+                  ...(resolvedSearchParams?.q ? { q: resolvedSearchParams.q } : {}),
+                  ...(resolvedSearchParams?.isActive ? { isActive: resolvedSearchParams.isActive } : {}),
                   cursor: data.nextCursor,
                 },
               }}

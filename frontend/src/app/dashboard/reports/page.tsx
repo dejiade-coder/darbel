@@ -41,14 +41,22 @@ type Summary = {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams?: {
-    dateFrom?: string;
-    dateTo?: string;
-    status?: string;
-    tradeCategory?: string;
-  };
+  searchParams?:
+    | {
+        dateFrom?: string;
+        dateTo?: string;
+        status?: string;
+        tradeCategory?: string;
+      }
+    | Promise<{
+        dateFrom?: string;
+        dateTo?: string;
+        status?: string;
+        tradeCategory?: string;
+      }>;
 }) {
-  const filterParams = buildFilterParams(searchParams);
+  const params = await Promise.resolve(searchParams);
+  const filterParams = buildFilterParams(params);
   const filterQuery = filterParams.toString();
   const exportSuffix = filterQuery ? `?${filterQuery}` : '';
   let summary: Summary | null = null;
@@ -95,15 +103,15 @@ export default async function ReportsPage({
         </div>
         <div className="grid gap-3 md:grid-cols-5">
           <Field label="From">
-            <Input type="date" name="dateFrom" defaultValue={searchParams?.dateFrom ?? ''} />
+            <Input type="date" name="dateFrom" defaultValue={params?.dateFrom ?? ''} />
           </Field>
           <Field label="To">
-            <Input type="date" name="dateTo" defaultValue={searchParams?.dateTo ?? ''} />
+            <Input type="date" name="dateTo" defaultValue={params?.dateTo ?? ''} />
           </Field>
           <Field label="Status">
             <select
               name="status"
-              defaultValue={searchParams?.status ?? ''}
+              defaultValue={params?.status ?? ''}
               className="h-10 w-full rounded-sm border border-ink-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <option value="">All statuses</option>
@@ -113,7 +121,7 @@ export default async function ReportsPage({
             </select>
           </Field>
           <Field label="Trade/category">
-            <Input name="tradeCategory" defaultValue={searchParams?.tradeCategory ?? ''} placeholder="e.g. Food Vendor" />
+            <Input name="tradeCategory" defaultValue={params?.tradeCategory ?? ''} placeholder="e.g. Food Vendor" />
           </Field>
           <div className="flex items-end gap-2">
             <Button type="submit" className="w-full">Apply</Button>

@@ -19,9 +19,10 @@ export default async function UserDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: { error?: string; success?: string };
+  searchParams?: { error?: string; success?: string } | Promise<{ error?: string; success?: string }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = await Promise.resolve(searchParams);
   const actor = await readActorFromAccessToken();
   const [user, roles] = await Promise.all([fetchUser(id), fetchRoles()]);
   if (!user) notFound();
@@ -60,8 +61,8 @@ export default async function UserDetailPage({
         </div>
       </header>
 
-      {searchParams?.error && <Alert variant="danger">{searchParams.error}</Alert>}
-      {searchParams?.success && <Alert variant="success">{searchParams.success}</Alert>}
+      {resolvedSearchParams?.error && <Alert variant="danger">{resolvedSearchParams.error}</Alert>}
+      {resolvedSearchParams?.success && <Alert variant="success">{resolvedSearchParams.success}</Alert>}
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <section className="space-y-4 rounded-sm border border-ink-200 bg-white p-5 shadow-sm">

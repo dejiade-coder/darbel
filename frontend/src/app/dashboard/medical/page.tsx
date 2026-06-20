@@ -47,11 +47,18 @@ const STATUS_TABS: Array<{ label: string; value: StatusFilter }> = [
 
 type StatusFilter = '' | Screening['status'];
 
-export default async function MedicalPage({ searchParams }: { searchParams?: { q?: string; status?: StatusFilter; medicalError?: string } }) {
+type MedicalSearchParams = { q?: string; status?: StatusFilter; medicalError?: string };
+
+export default async function MedicalPage({
+  searchParams,
+}: {
+  searchParams?: MedicalSearchParams | Promise<MedicalSearchParams>;
+}) {
+  const params = await Promise.resolve(searchParams);
   const actor = await readActorFromAccessToken();
-  const q = searchParams?.q?.trim() ?? '';
-  const status = searchParams?.status ?? '';
-  const medicalError = searchParams?.medicalError?.trim() ?? '';
+  const q = params?.q?.trim() ?? '';
+  const status = params?.status ?? '';
+  const medicalError = params?.medicalError?.trim() ?? '';
   let ready: Registration[] = [];
   let screenings: Screening[] = [];
   let loadError = '';

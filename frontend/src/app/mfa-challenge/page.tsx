@@ -9,8 +9,9 @@ export const metadata = { title: 'Verify identity' };
 export default async function MfaChallengePage({
   searchParams,
 }: {
-  searchParams?: { error?: string };
+  searchParams?: { error?: string } | Promise<{ error?: string }>;
 }) {
+  const params = await Promise.resolve(searchParams);
   const challenge = await getChallengeCookie();
   if (!challenge || challenge.kind !== 'mfa_required') {
     redirect('/login');
@@ -20,7 +21,7 @@ export default async function MfaChallengePage({
       title="Verify your identity"
       subtitle="Enter the 6-digit code from your authenticator app"
     >
-      <MfaForm action={verifyMfaAction} initialError={searchParams?.error} />
+      <MfaForm action={verifyMfaAction} initialError={params?.error} />
     </AuthShell>
   );
 }
