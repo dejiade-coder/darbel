@@ -2,6 +2,10 @@ import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
 
+export function GET(req: NextRequest) {
+  return NextResponse.redirect(new URL('/dashboard/certificates', req.url));
+}
+
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as {
     certificateId?: string;
