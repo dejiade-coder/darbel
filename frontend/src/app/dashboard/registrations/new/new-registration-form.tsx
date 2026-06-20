@@ -27,17 +27,21 @@ import {
 
 const DRAFT_KEY = 'darbel.registrationDraft';
 
-const tradeCategories = [
-  'Food Vendor',
-  'Hairdresser',
-  'Barber',
-  'Creche',
-  'Cook / Caterer',
-  'Meat Handler',
-  'Bakery Worker',
-  'Restaurant Staff',
-  'Market Food Stall',
-];
+export type TradeCategoryOption = {
+  id: string;
+  code: string;
+  displayName: string;
+  sector: string;
+  description: string | null;
+  validityPeriodDays: number;
+  isActive: boolean;
+  fee: {
+    amount?: string;
+    feeAmount?: number;
+    currency: string;
+    updatedAt?: string;
+  } | null;
+};
 
 type FormState = {
   registrationDate: string;
@@ -95,9 +99,11 @@ export type EditableRegistration = {
 export function NewRegistrationForm({
   registrar,
   registration,
+  tradeCategories = [],
 }: {
   registrar: RegistrarContext;
   registration?: EditableRegistration;
+  tradeCategories?: TradeCategoryOption[];
 }) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [registrationId, setRegistrationId] = useState<string | undefined>(registration?.id);
@@ -119,6 +125,12 @@ export function NewRegistrationForm({
   const requiredFields = [form.firstName, form.lastName, form.phone, form.registrationDate, form.tradeCategory, form.address];
   const complete = requiredFields.filter((value) => String(value).trim()).length;
   const completion = Math.round((complete / requiredFields.length) * 100);
+  const selectedTradeCategory = tradeCategories.find((category) => category.displayName === form.tradeCategory || category.code === form.tradeCategory);
+  const selectedFee = getTradeFee(selectedTradeCategory);
+  const selectableTradeNames = tradeCategories.map((category) => category.displayName);
+  const tradeOptions = form.tradeCategory && !selectableTradeNames.includes(form.tradeCategory)
+    ? [form.tradeCategory, ...selectableTradeNames]
+    : selectableTradeNames;
 
   useEffect(() => {
     if (registration) {
@@ -280,7 +292,7 @@ export function NewRegistrationForm({
                 <PillField icon={Mail} type="email" placeholder="Email Address" value={form.email} onChange={(value) => update('email', value)} className="md:col-span-2" />
                 <PillField icon={MapPin} placeholder="Address" value={form.address} onChange={(value) => update('address', value)} className="md:col-span-2" />
                 <PillField icon={Store} placeholder="Business Name" value={form.businessName} onChange={(value) => update('businessName', value)} />
-                <PillSelect icon={Briefcase} value={form.tradeCategory} options={tradeCategories} placeholder="Trade" onChange={(value) => update('tradeCategory', value)} />
+                <PillSelect icon={Briefcase} value={form.tradeCategory} options={tradeOptions} placeholder={tradeOptions.length ? 'Trade' : 'No fee-backed trade available'} onChange={(value) => update('tradeCategory', value)} />
                 <PillField icon={CalendarDays} type="date" placeholder="Date" value={form.registrationDate} onChange={(value) => update('registrationDate', value)} />
                 <label className="flex h-12 items-center gap-3 rounded-[8px] border border-ink-200 bg-ink-50 px-4 text-sm font-medium text-ink-800">
                   <input className="h-4 w-4 accent-[#0f766e]" type="checkbox" checked={form.passportPhoto} onChange={(event) => update('passportPhoto', event.target.checked)} />
@@ -322,6 +334,7 @@ export function NewRegistrationForm({
               <Summary label="Status" value={displayStatus(status)} />
               <Summary label="UID" value={registration?.uid ?? 'After payment'} />
               <Summary label="Trade" value={form.tradeCategory || 'Not selected'} />
+              <Summary label="Fee" value={selectedFee ? `${selectedFee.currency} ${selectedFee.amount.toLocaleString()}` : 'Set under trade categories'} />
               <Summary label="Registrar" value={registrar.name || registrar.email || 'Current user'} />
               <Summary label="Validity" value="12 months" />
             </div>
@@ -464,4 +477,11 @@ function displayStatus(status: RegistrationStatus): string {
 
 function isRegistrationStatus(value: unknown): value is RegistrationStatus {
   return value === 'DRAFT' || value === 'SUBMITTED_FOR_REVIEW' || value === 'READY_FOR_SCREENING' || value === 'CANCELLED';
+}
+
+function getTradeFee(category: TradeCategoryOption | undefined): { amount: number; currency: string } | null {
+  if (!category?.fee) return null;
+  const amount = category.fee.feeAmount ?? (category.fee.amount ? Number(category.fee.amount) : undefined);
+  if (!amount || !Number.isFinite(amount)) return null;
+  return { amount, currency: category.fee.currency || 'NGN' };
 }

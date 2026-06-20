@@ -11,13 +11,14 @@ export interface TradeCategoryWithFee {
   validityPeriodDays: number;
   isActive: boolean;
   fee?: {
-    tenantId: string;
-    tradeCategoryId: string;
-    feeAmount: number;
+    amount?: string;
+    tenantId?: string;
+    tradeCategoryId?: string;
+    feeAmount?: number;
     currency: string;
-    effectiveFrom: string;
-    updatedBy: string;
-    updatedAt: string;
+    effectiveFrom?: string;
+    updatedBy?: string;
+    updatedAt?: string;
   } | null;
 }
 

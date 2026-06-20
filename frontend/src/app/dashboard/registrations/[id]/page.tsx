@@ -7,6 +7,7 @@ import type { UserPublic } from '@/lib/api/types';
 import {
   NewRegistrationForm,
   type EditableRegistration,
+  type TradeCategoryOption,
 } from '../new/new-registration-form';
 import { PaymentPanel, type RegistrationPayment } from './payment-panel';
 import { DocumentPanel } from './document-panel';
@@ -20,16 +21,19 @@ export default async function EditRegistrationPage({ params }: { params: Promise
 
   let profile: UserPublic | null = null;
   let registration: EditableRegistration | null = null;
+  let tradeCategories: TradeCategoryOption[] = [];
   let payments: RegistrationPayment[] = [];
   let documents: RegistrationDocument[] = [];
 
   try {
-    const [profileResult, registrationResult] = await Promise.all([
+    const [profileResult, registrationResult, categoriesResult] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
       apiFetch<EditableRegistration>(`/registrations/${id}`, { authenticated: true }),
+      apiFetch<TradeCategoryOption[]>('/trade-categories?withFeeOnly=true', { authenticated: true }).catch(() => []),
     ]);
     profile = profileResult;
     registration = registrationResult;
+    tradeCategories = categoriesResult;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     if (!(e instanceof ApiError)) throw e;
@@ -71,6 +75,7 @@ export default async function EditRegistrationPage({ params }: { params: Promise
           isActive: profile?.isActive ?? true,
         }}
         registration={registration}
+        tradeCategories={tradeCategories}
       />
       {actor?.permissions.includes('payment.view') && (
         <PaymentPanel
@@ -79,6 +84,8 @@ export default async function EditRegistrationPage({ params }: { params: Promise
           canRecordPayment={actor.permissions.includes('payment.record')}
           canApprovePayment={actor.permissions.includes('payment.approve')}
           payments={payments}
+          tradeCategory={registration.tradeCategory}
+          tradeCategoryFee={resolveTradeCategoryFee(registration.tradeCategory, tradeCategories)}
         />
       )}
       {actor?.permissions.includes('handler.view') && (
@@ -107,4 +114,16 @@ export default async function EditRegistrationPage({ params }: { params: Promise
       )}
     </div>
   );
+}
+
+function resolveTradeCategoryFee(
+  tradeCategory: string | null,
+  categories: TradeCategoryOption[],
+): { amount: number; currency: string } | null {
+  if (!tradeCategory) return null;
+  const category = categories.find((item) => item.displayName === tradeCategory || item.code === tradeCategory);
+  if (!category?.fee) return null;
+  const amount = category.fee.feeAmount ?? (category.fee.amount ? Number(category.fee.amount) : undefined);
+  if (!amount || !Number.isFinite(amount)) return null;
+  return { amount, currency: category.fee.currency || 'NGN' };
 }

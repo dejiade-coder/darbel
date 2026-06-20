@@ -309,7 +309,9 @@ function Td({ children, align = 'left' }: { children: React.ReactNode; align?: '
 }
 
 function getFeeAmount(fee: TradeCategoryWithFee['fee']): number | undefined {
-  return fee?.feeAmount;
+  if (!fee) return undefined;
+  const value = fee.feeAmount ?? (fee.amount ? Number(fee.amount) : undefined);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 function hasFee(category: TradeCategoryWithFee): boolean {

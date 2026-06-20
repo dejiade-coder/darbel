@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, CreditCard, ReceiptText, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -36,16 +36,19 @@ export function PaymentPanel({
   canRecordPayment,
   canApprovePayment,
   payments,
+  tradeCategory,
+  tradeCategoryFee,
 }: {
   registrationId: string;
   registrationStatus: RegistrationStatus;
   canRecordPayment: boolean;
   canApprovePayment: boolean;
   payments: RegistrationPayment[];
+  tradeCategory: string | null;
+  tradeCategoryFee: { amount: number; currency: string } | null;
 }) {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(tradeCategoryFee?.amount ? String(tradeCategoryFee.amount) : '');
   const [method, setMethod] = useState<PaymentMethod>('CASH');
-  const [reference, setReference] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
   const [paidAt, setPaidAt] = useState(today());
   const [notes, setNotes] = useState('');
@@ -56,6 +59,12 @@ export function PaymentPanel({
   const canRegistrarApprove = canRecordPayment;
   const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const hasApprovedPayment = payments.some((payment) => payment.status === 'APPROVED');
+
+  useEffect(() => {
+    if (tradeCategoryFee?.amount && !payments.length) {
+      setAmount(String(tradeCategoryFee.amount));
+    }
+  }, [payments.length, tradeCategoryFee?.amount]);
 
   async function recordPayment() {
     if (!amount || Number(amount) <= 0) {
@@ -69,7 +78,6 @@ export function PaymentPanel({
         handlerRegistrationId: registrationId,
         amount: Number(amount),
         method,
-        reference,
         receiptNumber,
         paidAt,
         notes,
@@ -78,7 +86,6 @@ export function PaymentPanel({
         throw new Error('Payment was not recorded. Please try again.');
       }
       setAmount('');
-      setReference('');
       setReceiptNumber('');
       setNotes('');
       const approved = await registrarApprovePaymentAction({
@@ -177,11 +184,25 @@ export function PaymentPanel({
             </div>
           )}
 
+          <div className="rounded-[8px] border border-ink-200 bg-ink-50 p-4 text-sm text-ink-700">
+            <p className="font-semibold text-ink-900">Trade category fee</p>
+            <p className="mt-1">
+              {tradeCategory || 'No category selected'}:{' '}
+              <span className="font-semibold">
+                {tradeCategoryFee ? `${tradeCategoryFee.currency} ${tradeCategoryFee.amount.toLocaleString()}` : 'No fee configured'}
+              </span>
+            </p>
+            {!tradeCategoryFee && (
+              <p className="mt-2 text-xs text-amber-700">
+                Set this category fee under Trade Categories before recording payment.
+              </p>
+            )}
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Amount (NGN)" id="paymentAmount" type="number" value={amount} onChange={setAmount} disabled={!canRecord} />
+            <Field label="Amount (NGN)" id="paymentAmount" type="number" value={amount} onChange={setAmount} disabled={!canRecord || Boolean(tradeCategoryFee)} />
             <SelectField label="Method" id="paymentMethod" value={method} onChange={(value) => setMethod(value as PaymentMethod)} disabled={!canRecord} />
             <Field label="Receipt number" id="receiptNumber" value={receiptNumber} onChange={setReceiptNumber} disabled={!canRecord} />
-            <Field label="Reference" id="paymentReference" value={reference} onChange={setReference} disabled={!canRecord} />
             <Field label="Paid date" id="paidAt" type="date" value={paidAt} onChange={setPaidAt} disabled={!canRecord} />
             <div className="md:col-span-2">
               <Label htmlFor="paymentNotes" className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Notes</Label>
@@ -200,7 +221,7 @@ export function PaymentPanel({
           <button
             type="button"
             onClick={recordPayment}
-            disabled={!canRecord || isSaving}
+            disabled={!canRecord || isSaving || !amount || Number(amount) <= 0}
             className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#0f766e] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59] disabled:opacity-60"
           >
             <Save className="mr-2 h-4 w-4" />
@@ -235,7 +256,7 @@ export function PaymentPanel({
                 </div>
                 <p className="mt-1 text-xs text-ink-500">{displayMethod(payment.method)} - {formatDate(payment.paidAt)}</p>
                 <p className="mt-1 font-mono text-xs text-ink-500">
-                  {payment.receiptNumber || payment.reference || payment.id}
+                  {payment.receiptNumber || payment.id}
                 </p>
                 {payment.approvedAt && (
                   <p className="mt-2 text-xs font-semibold text-emerald-700">Approved {formatDate(payment.approvedAt)}</p>

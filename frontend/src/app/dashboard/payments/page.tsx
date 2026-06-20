@@ -124,7 +124,7 @@ export default async function PaymentsPage({
               name="q"
               defaultValue={q}
               className="pl-9"
-              placeholder="Search by handler, receipt, reference, or category"
+              placeholder="Search by handler, receipt, UID, or category"
               aria-label="Search payments"
             />
             {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
@@ -175,7 +175,7 @@ export default async function PaymentsPage({
                       <p className="font-medium text-ink-900">{payment.handlerName}</p>
                       <p className="mt-1 text-xs text-ink-500">{payment.tradeCategory || 'No category'}</p>
                       <p className="mt-1 font-mono text-xs text-ink-500">
-                        {payment.registrationUid ?? payment.receiptNumber ?? payment.reference ?? payment.id}
+                        {payment.registrationUid ?? payment.receiptNumber ?? payment.id}
                       </p>
                     </div>
                     <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
