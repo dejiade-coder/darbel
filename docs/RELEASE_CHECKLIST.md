@@ -77,3 +77,18 @@ The workflow smoke test verifies:
 - Confirm health checks are monitored.
 - Confirm error logs are being collected.
 - Tag a GitHub release after final acceptance.
+
+## 7. Final Acceptance Sign-Off
+
+Before declaring the build complete, sign off these items with the tenant:
+
+- Trade category fees are final and each selected category displays the correct payment amount during registration.
+- Payment approval is handled by the registrar workflow without waiting for a separate finance approval step.
+- UID search works from registrations, payments, medical screening, certificates, and reports.
+- Medical officers can see approved handlers, collect samples, record Mantoux, Hepatitis B, HIV, and Widal results, and export medical data.
+- Certificate template, optional HOD and Deputy HOD signatures, hidden text fields, and barcode/UID placement have been reviewed on a printed certificate.
+- Protected certificate barcode scanning reveals handler details only to authorized officers.
+- Reports dashboard is accepted by management and exports PDF, Excel, and CSV files.
+- Login, role access, MFA enrollment, and audit logs have been checked with real operator roles.
+- Email and WhatsApp delivery providers have been configured and tested if the tenant will use them at launch.
+- Production migration was run with the migrator database role, not the limited app runtime role.

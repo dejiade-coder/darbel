@@ -47,6 +47,7 @@ const STATUS_TABS: Array<{ label: string; value: Registration['status'] | '' }> 
 type RegistrationsSearchParams = {
   q?: string;
   status?: Registration['status'];
+  cursor?: string;
 };
 
 export default async function RegistrationsPage({
@@ -56,12 +57,15 @@ export default async function RegistrationsPage({
 }) {
   const params = await Promise.resolve(searchParams);
   let items: Registration[] = [];
+  let nextCursor: string | null = null;
   let loadError = '';
   const q = params?.q?.trim() ?? '';
   const statusFilter = params?.status;
+  const cursor = params?.cursor?.trim() ?? '';
   const apiParams = new URLSearchParams();
   if (q) apiParams.set('q', q);
   if (statusFilter) apiParams.set('status', statusFilter);
+  if (cursor) apiParams.set('cursor', cursor);
   const apiPath = `/registrations${apiParams.size ? `?${apiParams.toString()}` : ''}`;
 
   try {
@@ -70,6 +74,7 @@ export default async function RegistrationsPage({
       { authenticated: true },
     );
     items = result.items;
+    nextCursor = result.nextCursor;
   } catch (e) {
     if (e instanceof ApiError) {
       loadError = e.message;
@@ -208,6 +213,15 @@ export default async function RegistrationsPage({
             );
           })}
         </div>
+        {nextCursor && (
+          <div className="border-t border-ink-100 p-5 text-center">
+            <Button asChild variant="outline">
+              <Link href={buildRegistrationsHref({ q, status: statusFilter, cursor: nextCursor })}>
+                Load more registrations
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -237,13 +251,16 @@ function formatDate(value: string): string {
 function buildRegistrationsHref({
   q,
   status,
+  cursor,
 }: {
   q?: string;
   status?: Registration['status'];
+  cursor?: string;
 }): string {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (status) params.set('status', status);
+  if (cursor) params.set('cursor', cursor);
   const query = params.toString();
   return `/dashboard/registrations${query ? `?${query}` : ''}`;
 }
