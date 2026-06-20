@@ -248,7 +248,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
       <CardHeader>
         <CardTitle>Approved Certificate Template</CardTitle>
         <CardDescription>
-          Import the approved certificate sample. New printed certificates will place the handler name, UID, dates, and verification link over this template.
+          Import the approved certificate sample. New printed certificates will place the handler name, UID, dates, signatures, and protected officer scan barcode over this template.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

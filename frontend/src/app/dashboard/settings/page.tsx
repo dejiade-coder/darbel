@@ -12,7 +12,7 @@ import { MessageTemplatesCard, type MessageTemplates } from './message-templates
 import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateMessageTemplatesAction, updateNotificationProvidersAction } from './actions';
 import { Alert } from '@/components/ui/alert';
 
-export const metadata = { title: 'My account' };
+export const metadata = { title: 'Settings' };
 
 type CertificateTemplate = {
   originalFilename: string | null;
@@ -101,9 +101,9 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Account"
-        title="My account"
-        description="Manage your password and multi-factor authentication. Changing your password signs out all other sessions."
+        eyebrow="Operator and tenant setup"
+        title="Settings"
+        description="Manage your account security, certificate template, provider settings, and applicant message templates from one place."
       />
 
       {loadError && (

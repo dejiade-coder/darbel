@@ -37,14 +37,13 @@ const TEMPLATE_SECTIONS: Array<{
   { key: 'paymentConfirmed', title: 'Payment Confirmed', detail: 'Sent after registrar payment approval.', recommendedTokens: ['{{handlerName}}', '{{uid}}'] },
   { key: 'uidIssued', title: 'UID Issued', detail: 'Sent when the handler UID is available.', recommendedTokens: ['{{handlerName}}', '{{uid}}'] },
   { key: 'medicalScreeningReady', title: 'Medical Screening Notice', detail: 'Sent when the handler should proceed to screening.', recommendedTokens: ['{{handlerName}}', '{{uid}}'] },
-  { key: 'certificateReady', title: 'Certificate Ready', detail: 'Sent when a certificate is issued or shared.', recommendedTokens: ['{{handlerName}}', '{{uid}}', '{{verificationUrl}}'] },
+  { key: 'certificateReady', title: 'Certificate Ready', detail: 'Sent when a certificate is issued or shared.', recommendedTokens: ['{{handlerName}}', '{{uid}}'] },
 ];
 
-const TOKENS = ['{{handlerName}}', '{{uid}}', '{{verificationUrl}}'];
+const TOKENS = ['{{handlerName}}', '{{uid}}'];
 const SAMPLE_VALUES: Record<string, string> = {
   '{{handlerName}}': 'Oladimeji Adegbite',
   '{{uid}}': 'BBH-SAMPLE-7',
-  '{{verificationUrl}}': 'Officer barcode scan only',
 };
 
 export function MessageTemplatesCard({ initialTemplates, action }: Props) {
@@ -71,7 +70,7 @@ export function MessageTemplatesCard({ initialTemplates, action }: Props) {
           <div>
             <CardTitle>Applicant Message Templates</CardTitle>
             <CardDescription>
-              Standardize email and WhatsApp content. Available tokens: {'{{handlerName}}'}, {'{{uid}}'}, {'{{verificationUrl}}'}.
+              Standardize email and WhatsApp content. Available tokens: {'{{handlerName}}'} and {'{{uid}}'}. Printed certificates use the protected officer barcode for handler details.
             </CardDescription>
           </div>
         </div>
