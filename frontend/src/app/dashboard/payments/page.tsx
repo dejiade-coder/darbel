@@ -29,6 +29,7 @@ type PaymentsSearchParams = {
   q?: string;
   status?: Payment['status'];
   paymentError?: string;
+  cursor?: string;
 };
 
 const statusStyles: Record<string, string> = {
@@ -58,10 +59,13 @@ export default async function PaymentsPage({
   let loadError = '';
   const q = params?.q?.trim() ?? '';
   const statusFilter = params?.status;
+  const cursor = params?.cursor;
   const paymentError = params?.paymentError?.trim() ?? '';
   const apiParams = new URLSearchParams();
   if (q) apiParams.set('q', q);
   if (statusFilter) apiParams.set('status', statusFilter);
+  if (cursor) apiParams.set('cursor', cursor);
+  let nextCursor: string | null = null;
 
   try {
     const result = await apiFetch<{ items: Payment[]; nextCursor: string | null }>(
@@ -69,6 +73,7 @@ export default async function PaymentsPage({
       { authenticated: true },
     );
     items = result.items;
+    nextCursor = result.nextCursor;
   } catch (e) {
     if (e instanceof ApiError) {
       loadError = e.message;
@@ -189,6 +194,11 @@ export default async function PaymentsPage({
                     </span>
                     <span className="rounded-sm bg-ink-50 px-2.5 py-1">{displayMethod(payment.method)}</span>
                     <span className="rounded-sm bg-ink-50 px-2.5 py-1">Paid {formatDate(payment.paidAt)}</span>
+                    {payment.approvedAt && (
+                      <span className="rounded-sm bg-success/10 px-2.5 py-1 font-medium text-success">
+                        Approved {formatDate(payment.approvedAt)}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
@@ -215,6 +225,15 @@ export default async function PaymentsPage({
             );
           })}
         </div>
+        {nextCursor && (
+          <div className="border-t border-ink-100 p-5 text-right">
+            <Button asChild variant="outline" size="sm">
+              <Link href={buildPaymentsHref({ q, status: statusFilter, cursor: nextCursor })}>
+                Load more
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -242,10 +261,11 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function buildPaymentsHref({ q, status }: { q?: string; status?: Payment['status'] }): string {
+function buildPaymentsHref({ q, status, cursor }: { q?: string; status?: Payment['status']; cursor?: string }): string {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (status) params.set('status', status);
+  if (cursor) params.set('cursor', cursor);
   const query = params.toString();
   return `/dashboard/payments${query ? `?${query}` : ''}`;
 }
