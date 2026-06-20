@@ -86,7 +86,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <Link href="/dashboard/settings">
+              <Link href="/dashboard/settings/certificate-template">
                 <Printer className="mr-2 h-4 w-4" />
                 Certificate template
               </Link>

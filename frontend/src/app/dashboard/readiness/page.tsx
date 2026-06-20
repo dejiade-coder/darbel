@@ -124,7 +124,7 @@ export default async function ReadinessPage() {
     {
       title: 'Tenant Setup',
       items: [
-        item('Approved certificate template', template?.originalFilename ?? 'No approved certificate template uploaded', Boolean(template?.isApproved), '/dashboard/settings', 'blocker'),
+        item('Approved certificate template', template?.originalFilename ?? 'No approved certificate template uploaded', Boolean(template?.isApproved), '/dashboard/settings/certificate-template', 'blocker'),
         item('Email provider configured', emailProviderDetail(providers), Boolean(providers?.emailEnabled && providers.smtpHost && providers.emailFromAddress && providers.smtpPasswordConfigured), '/dashboard/settings', 'important'),
         item('WhatsApp provider configured', whatsAppProviderDetail(providers), Boolean(providers?.whatsAppEnabled && providers.whatsAppPhoneNumberId && providers.whatsAppAccessTokenConfigured), '/dashboard/settings', 'important'),
       ],
