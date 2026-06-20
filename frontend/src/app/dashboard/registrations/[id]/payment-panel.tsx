@@ -59,6 +59,8 @@ export function PaymentPanel({
   const canRegistrarApprove = canRecordPayment;
   const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const hasApprovedPayment = payments.some((payment) => payment.status === 'APPROVED');
+  const approvedPayment = payments.find((payment) => payment.status === 'APPROVED');
+  const paymentGateComplete = Boolean(approvedPayment) || registrationStatus === 'READY_FOR_SCREENING';
 
   useEffect(() => {
     if (tradeCategoryFee?.amount && !payments.length) {
@@ -154,7 +156,11 @@ export function PaymentPanel({
           </div>
           <div>
             <h2 className="text-xl font-semibold text-ink-900">Payment</h2>
-            <p className="mt-1 text-sm text-ink-600">Record and approve payment here so the handler can move straight to medical screening.</p>
+            <p className="mt-1 text-sm text-ink-600">
+              {paymentGateComplete
+                ? 'Payment is approved and this handler is cleared for medical screening.'
+                : 'Record and approve payment here so the handler can move straight to medical screening.'}
+            </p>
           </div>
         </div>
         <div className="rounded-[8px] border border-ink-200 bg-ink-50 px-4 py-2 text-sm text-ink-700">
@@ -164,7 +170,16 @@ export function PaymentPanel({
 
       <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          {!canRecord && (
+          {paymentGateComplete && (
+            <div className="rounded-[8px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-semibold text-emerald-900">Payment approved</p>
+              <p className="mt-1">
+                This handler can proceed to medical screening
+                {approvedPayment?.registrationUid ? ` with UID ${approvedPayment.registrationUid}` : ''}.
+              </p>
+            </div>
+          )}
+          {!paymentGateComplete && !canRecord && (
             <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
               {canRecordPayment
                 ? 'Submit the registration before recording payment. Cancelled records cannot receive payment.'
@@ -199,34 +214,38 @@ export function PaymentPanel({
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Amount (NGN)" id="paymentAmount" type="number" value={amount} onChange={setAmount} disabled={!canRecord || Boolean(tradeCategoryFee)} />
-            <SelectField label="Method" id="paymentMethod" value={method} onChange={(value) => setMethod(value as PaymentMethod)} disabled={!canRecord} />
-            <Field label="Receipt number" id="receiptNumber" value={receiptNumber} onChange={setReceiptNumber} disabled={!canRecord} />
-            <Field label="Paid date" id="paidAt" type="date" value={paidAt} onChange={setPaidAt} disabled={!canRecord} />
-            <div className="md:col-span-2">
-              <Label htmlFor="paymentNotes" className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Notes</Label>
-              <textarea
-                id="paymentNotes"
-                rows={3}
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                disabled={!canRecord}
-                className="mt-2 w-full rounded-[8px] border border-ink-200 bg-white px-4 py-3 text-sm text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15 disabled:bg-ink-50"
-                placeholder="Optional payment notes"
-              />
-            </div>
-          </div>
+          {!paymentGateComplete && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Amount (NGN)" id="paymentAmount" type="number" value={amount} onChange={setAmount} disabled={!canRecord || Boolean(tradeCategoryFee)} />
+                <SelectField label="Method" id="paymentMethod" value={method} onChange={(value) => setMethod(value as PaymentMethod)} disabled={!canRecord} />
+                <Field label="Receipt number" id="receiptNumber" value={receiptNumber} onChange={setReceiptNumber} disabled={!canRecord} />
+                <Field label="Paid date" id="paidAt" type="date" value={paidAt} onChange={setPaidAt} disabled={!canRecord} />
+                <div className="md:col-span-2">
+                  <Label htmlFor="paymentNotes" className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Notes</Label>
+                  <textarea
+                    id="paymentNotes"
+                    rows={3}
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    disabled={!canRecord}
+                    className="mt-2 w-full rounded-[8px] border border-ink-200 bg-white px-4 py-3 text-sm text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15 disabled:bg-ink-50"
+                    placeholder="Optional payment notes"
+                  />
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={recordPayment}
-            disabled={!canRecord || isSaving || !amount || Number(amount) <= 0}
-            className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#0f766e] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59] disabled:opacity-60"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Approving...' : 'Record and approve'}
-          </button>
+              <button
+                type="button"
+                onClick={recordPayment}
+                disabled={!canRecord || isSaving || !amount || Number(amount) <= 0}
+                className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#0f766e] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59] disabled:opacity-60"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? 'Approving...' : 'Record and approve'}
+              </button>
+            </>
+          )}
         </div>
 
         <aside className="rounded-[8px] border border-ink-200 bg-ink-50 p-4">
