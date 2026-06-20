@@ -43,20 +43,7 @@ export class PaymentsService {
       if (query.status) where.status = query.status;
       if (query.handlerRegistrationId) where.handlerRegistrationId = query.handlerRegistrationId;
       if (query.q) {
-        where.OR = [
-          { reference: { contains: query.q, mode: 'insensitive' } },
-          { receiptNumber: { contains: query.q, mode: 'insensitive' } },
-          {
-            handlerRegistration: {
-              OR: [
-                { firstName: { contains: query.q, mode: 'insensitive' } },
-                { lastName: { contains: query.q, mode: 'insensitive' } },
-                { phone: { contains: query.q, mode: 'insensitive' } },
-                { tradeCategory: { contains: query.q, mode: 'insensitive' } },
-              ],
-            },
-          },
-        ];
+        where.AND = buildPaymentSearchClauses(query.q);
       }
 
       const take = query.limit + 1;
@@ -210,6 +197,43 @@ export class PaymentsService {
 function emptyToNull(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function buildPaymentSearchClauses(query: string): Prisma.PaymentWhereInput[] {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (tokens.length <= 1) {
+    const value = tokens[0] ?? query.trim();
+    return [buildPaymentTokenSearch(value)];
+  }
+
+  return tokens.map(buildPaymentTokenSearch);
+}
+
+function buildPaymentTokenSearch(token: string): Prisma.PaymentWhereInput {
+  const normalizedUid = token.trim().toUpperCase();
+  return {
+    OR: [
+      { receiptNumber: { contains: token, mode: 'insensitive' } },
+      { reference: { contains: token, mode: 'insensitive' } },
+      {
+        handlerRegistration: {
+          OR: [
+            { uid: { contains: normalizedUid, mode: 'insensitive' } },
+            { firstName: { contains: token, mode: 'insensitive' } },
+            { lastName: { contains: token, mode: 'insensitive' } },
+            { phone: { contains: token, mode: 'insensitive' } },
+            { tradeCategory: { contains: token, mode: 'insensitive' } },
+            { businessName: { contains: token, mode: 'insensitive' } },
+          ],
+        },
+      },
+    ],
+  };
 }
 
 function toPublic(row: PaymentRow, registrationHasApprovedPayment?: boolean): PaymentPublicDto {
