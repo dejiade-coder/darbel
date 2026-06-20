@@ -316,9 +316,16 @@ function SignatureOverlay({
   signatures: CertificateTemplateSignatures;
   panel?: boolean;
 }) {
+  const visibleSignatures = [
+    { slot: 'hod' as const, signature: signatures.hod },
+    { slot: 'deputyHod' as const, signature: signatures.deputyHod },
+  ].filter((entry) => entry.signature);
+
+  if (!visibleSignatures.length) return null;
+
   return (
     <div
-      className={`absolute grid grid-cols-2 gap-8 text-center text-ink-900 ${panel ? 'bg-white/75 p-4 print:bg-white/80' : ''}`}
+      className={`absolute grid gap-8 text-center text-ink-900 ${visibleSignatures.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${panel ? 'bg-white/75 p-4 print:bg-white/80' : ''}`}
       style={{
         left: `${layout.signatureLeftPercent}%`,
         top: `${layout.signatureTopPercent}%`,
@@ -326,17 +333,26 @@ function SignatureOverlay({
         fontSize: `${0.875 * (layout.signatureScale / 100)}rem`,
       }}
     >
-      <PrintedSignature slot="hod" signature={signatures.hod} showLabel={layout.showSignatureLabels} />
-      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} showLabel={layout.showSignatureLabels} />
+      {visibleSignatures.map((entry) => (
+        <PrintedSignature key={entry.slot} slot={entry.slot} signature={entry.signature} showLabel={layout.showSignatureLabels} />
+      ))}
     </div>
   );
 }
 
 function SignatureRow({ signatures, showLabels }: { signatures: CertificateTemplateSignatures; showLabels: boolean }) {
+  const visibleSignatures = [
+    { slot: 'hod' as const, signature: signatures.hod },
+    { slot: 'deputyHod' as const, signature: signatures.deputyHod },
+  ].filter((entry) => entry.signature);
+
+  if (!visibleSignatures.length) return null;
+
   return (
-    <div className="mt-8 grid gap-10 text-center md:grid-cols-2">
-      <PrintedSignature slot="hod" signature={signatures.hod} showLabel={showLabels} />
-      <PrintedSignature slot="deputyHod" signature={signatures.deputyHod} showLabel={showLabels} />
+    <div className={`mt-8 grid gap-10 text-center ${visibleSignatures.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+      {visibleSignatures.map((entry) => (
+        <PrintedSignature key={entry.slot} slot={entry.slot} signature={entry.signature} showLabel={showLabels} />
+      ))}
     </div>
   );
 }
@@ -350,21 +366,17 @@ function PrintedSignature({
   signature: CertificateTemplateSignature | null;
   showLabel: boolean;
 }) {
+  if (!signature) return null;
+
   const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
   return (
     <div>
       <div className="flex h-16 items-end justify-center">
-        {signature ? (
-          <img
-            src={signatureFileUrl(slot, signature.uploadedAt)}
-            alt={`${label} signature`}
-            className="max-h-16 max-w-full object-contain"
-          />
-        ) : (
-          <span className="text-center text-[10px] uppercase tracking-[0.14em] text-ink-400">
-            No {label} signature uploaded
-          </span>
-        )}
+        <img
+          src={signatureFileUrl(slot, signature.uploadedAt)}
+          alt={`${label} signature`}
+          className="max-h-16 max-w-full object-contain"
+        />
       </div>
       {showLabel && (
         <div className="mt-2 border-t border-ink-900 pt-2">

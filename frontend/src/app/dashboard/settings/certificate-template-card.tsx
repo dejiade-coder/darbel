@@ -79,6 +79,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
   const templateFileUrl = template
     ? `/dashboard/settings/certificate-template/file?v=${encodeURIComponent(template.uploadedAt)}`
     : '/dashboard/settings/certificate-template/file';
+  const visibleSignatureCount = [template?.signatures?.hod, template?.signatures?.deputyHod].filter(Boolean).length;
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
@@ -410,7 +411,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                   )}
                 </div>
               </DraggableBlock>
-              {layout.showSignatures && (
+              {layout.showSignatures && visibleSignatureCount > 0 && (
                 <DraggableBlock
                   label="Signatures"
                   className="bg-white/70"
@@ -423,7 +424,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                   onPointerMove={continueDrag('signatures')}
                 >
                   <div
-                    className="grid grid-cols-2 gap-4 text-center text-ink-900"
+                    className={`grid gap-4 text-center text-ink-900 ${visibleSignatureCount > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}
                     style={{ fontSize: `${0.72 * (layout.signatureScale / 100)}rem` }}
                   >
                     <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} showLabel={layout.showSignatureLabels} cacheVersion={signatureVersion} />
@@ -685,10 +686,12 @@ function SignatureUpload({
           {message && <p className="text-xs text-ink-600">{message}</p>}
         </div>
       </div>
-      <div className="rounded-sm border border-ink-100 bg-ink-50/60 p-3">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-500">{label} slot preview</p>
-        <SignaturePreview slot={slot} signature={signature} showLabel cacheVersion={cacheVersion} />
-      </div>
+      {signature && (
+        <div className="rounded-sm border border-ink-100 bg-ink-50/60 p-3">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-500">{label} slot preview</p>
+          <SignaturePreview slot={slot} signature={signature} showLabel cacheVersion={cacheVersion} />
+        </div>
+      )}
     </div>
   );
 }
@@ -704,21 +707,17 @@ function SignaturePreview({
   showLabel: boolean;
   cacheVersion?: number;
 }) {
+  if (!signature) return null;
+
   const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
-  const src = signature ? signatureFileUrl(slot, signature.uploadedAt, cacheVersion) : '';
+  const src = signatureFileUrl(slot, signature.uploadedAt, cacheVersion);
   return (
     <div>
       <p className="mb-2 text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-accent">
         {label}
       </p>
       <div className="flex h-10 items-end justify-center">
-        {signature ? (
-          <img src={src} alt={`${label} signature`} className="max-h-10 max-w-full object-contain" />
-        ) : (
-          <span className="text-center text-[9px] uppercase tracking-[0.14em] text-ink-400">
-            No {label} signature uploaded yet
-          </span>
-        )}
+        <img src={src} alt={`${label} signature`} className="max-h-10 max-w-full object-contain" />
       </div>
       {showLabel && (
         <div className="mt-1 border-t border-ink-900 pt-1">
