@@ -55,9 +55,9 @@ async function configureDatabaseRoles(databaseUrl, passwords) {
 }
 
 function configureRoleUrls(databaseUrl, passwords) {
-  process.env.DATABASE_URL ||= buildRoleUrl(databaseUrl, 'darbel_app', passwords.app, 10);
-  process.env.DATABASE_AUTH_URL ||= buildRoleUrl(databaseUrl, 'darbel_auth', passwords.auth, 5);
-  process.env.DATABASE_MIGRATOR_URL ||= buildRoleUrl(databaseUrl, 'darbel_migrator', passwords.migrator, 5);
+  process.env.DATABASE_URL = buildRoleUrl(databaseUrl, 'darbel_app', passwords.app, 10);
+  process.env.DATABASE_AUTH_URL = buildRoleUrl(databaseUrl, 'darbel_auth', passwords.auth, 5);
+  process.env.DATABASE_MIGRATOR_URL = buildRoleUrl(databaseUrl, 'darbel_migrator', passwords.migrator, 5);
 }
 
 function buildRoleUrl(databaseUrl, role, password, connectionLimit) {
