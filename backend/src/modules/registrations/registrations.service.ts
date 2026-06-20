@@ -47,14 +47,7 @@ export class RegistrationsService {
       const where: Prisma.HandlerRegistrationWhereInput = {};
       if (query.status) where.status = query.status;
       if (query.q) {
-        where.OR = [
-          { firstName: { contains: query.q, mode: 'insensitive' } },
-          { lastName: { contains: query.q, mode: 'insensitive' } },
-          { phone: { contains: query.q, mode: 'insensitive' } },
-          { uid: { contains: query.q.toUpperCase(), mode: 'insensitive' } },
-          { tradeCategory: { contains: query.q, mode: 'insensitive' } },
-          { businessName: { contains: query.q, mode: 'insensitive' } },
-        ];
+        where.AND = buildRegistrationSearchClauses(query.q);
       }
 
       const take = query.limit + 1;
@@ -196,6 +189,45 @@ function toPublic(row: HandlerRegistrationRow): RegistrationPublicDto {
     updatedAt: row.updatedAt.toISOString(),
     submittedAt: row.submittedAt?.toISOString() ?? null,
   };
+}
+
+function buildRegistrationSearchClauses(query: string): Prisma.HandlerRegistrationWhereInput[] {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (tokens.length <= 1) {
+    const value = tokens[0] ?? query.trim();
+    return [buildRegistrationTokenSearch(value)];
+  }
+
+  return tokens.map(buildRegistrationTokenSearch);
+}
+
+function buildRegistrationTokenSearch(token: string): Prisma.HandlerRegistrationWhereInput {
+  const normalizedUid = token.trim().toUpperCase();
+  const or: Prisma.HandlerRegistrationWhereInput[] = [
+    { uid: { contains: normalizedUid, mode: 'insensitive' } },
+    { firstName: { contains: token, mode: 'insensitive' } },
+    { lastName: { contains: token, mode: 'insensitive' } },
+    { phone: { contains: token, mode: 'insensitive' } },
+    { tradeCategory: { contains: token, mode: 'insensitive' } },
+    { businessName: { contains: token, mode: 'insensitive' } },
+  ];
+
+  if (isUuid(token)) {
+    or.push({ id: { equals: token } });
+  }
+
+  return {
+    OR: or,
+  };
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 type HandlerRegistrationRow = {

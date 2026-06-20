@@ -52,12 +52,13 @@ type RegistrationsSearchParams = {
 export default async function RegistrationsPage({
   searchParams,
 }: {
-  searchParams?: RegistrationsSearchParams;
+  searchParams?: RegistrationsSearchParams | Promise<RegistrationsSearchParams>;
 }) {
+  const params = await Promise.resolve(searchParams);
   let items: Registration[] = [];
   let loadError = '';
-  const q = searchParams?.q?.trim() ?? '';
-  const statusFilter = searchParams?.status;
+  const q = params?.q?.trim() ?? '';
+  const statusFilter = params?.status;
   const apiParams = new URLSearchParams();
   if (q) apiParams.set('q', q);
   if (statusFilter) apiParams.set('status', statusFilter);
