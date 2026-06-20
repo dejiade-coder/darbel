@@ -11,7 +11,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY next.config.js ./
 COPY postcss.config.js ./
-COPY tailwind.config.ts ./
+COPY tailwind.config.js ./
 COPY tsconfig.json ./
 COPY src ./src
 COPY public ./public
