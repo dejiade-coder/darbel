@@ -66,7 +66,10 @@ type SignatureSlot = 'hod' | 'deputyHod';
 export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: Template }) {
   const [template, setTemplate] = useState(initialTemplate);
   const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [signatureBusy, setSignatureBusy] = useState<Record<SignatureSlot, boolean>>({ hod: false, deputyHod: false });
+  const [signatureMessages, setSignatureMessages] = useState<Record<SignatureSlot, string>>({ hod: '', deputyHod: '' });
+  const [signatureVersion, setSignatureVersion] = useState(Date.now());
   const [savingLayout, setSavingLayout] = useState(false);
   const [layout, setLayout] = useState<TemplateLayout>(normalizeLayout(initialTemplate?.layout ?? DEFAULT_LAYOUT));
   const fileRef = useRef<HTMLInputElement>(null);
@@ -85,7 +88,7 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
     }
     const form = new FormData();
     form.append('file', file);
-    setBusy(true);
+    setTemplateBusy(true);
     setMessage('');
     try {
       const res = await fetch('/dashboard/settings/certificate-template', {
@@ -101,7 +104,21 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Template upload failed');
     } finally {
-      setBusy(false);
+      setTemplateBusy(false);
+    }
+  }
+
+  async function refreshTemplate(fallback: Template = template) {
+    try {
+      const res = await fetch('/dashboard/settings/certificate-template', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Could not refresh certificate template');
+      setTemplate(data);
+      setLayout(normalizeLayout(data.layout ?? fallback?.layout ?? layout));
+      return data as Template;
+    } catch {
+      if (fallback) setTemplate(fallback);
+      return fallback;
     }
   }
 
@@ -111,15 +128,16 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
       return;
     }
     const input = slot === 'hod' ? hodSignatureRef.current : deputySignatureRef.current;
+    const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
     const file = input?.files?.[0];
     if (!file) {
-      setMessage(`Choose a ${slot === 'hod' ? 'HOD' : 'Dep. HOD'} signature image first.`);
+      setSignatureMessages((current) => ({ ...current, [slot]: `Choose a ${label} signature image first.` }));
       return;
     }
     const form = new FormData();
     form.append('file', file);
-    setBusy(true);
-    setMessage('');
+    setSignatureBusy((current) => ({ ...current, [slot]: true }));
+    setSignatureMessages((current) => ({ ...current, [slot]: '' }));
     try {
       const res = await fetch(`/dashboard/settings/certificate-template/signatures/${slot}`, {
         method: 'POST',
@@ -129,12 +147,17 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
       if (!res.ok) throw new Error(data?.message || 'Signature upload failed');
       setTemplate(data);
       setLayout(normalizeLayout(data.layout ?? layout));
-      setMessage(`${slot === 'hod' ? 'HOD' : 'Dep. HOD'} signature uploaded.`);
+      setSignatureVersion(Date.now());
+      await refreshTemplate(data);
+      setSignatureMessages((current) => ({ ...current, [slot]: `${label} signature uploaded and reflected in the preview.` }));
       if (input) input.value = '';
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Signature upload failed');
+      setSignatureMessages((current) => ({
+        ...current,
+        [slot]: error instanceof Error ? error.message : 'Signature upload failed',
+      }));
     } finally {
-      setBusy(false);
+      setSignatureBusy((current) => ({ ...current, [slot]: false }));
     }
   }
 
@@ -270,9 +293,9 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
 
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,application/pdf" className="block w-full text-sm text-ink-700" />
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={upload} disabled={busy}>
+          <Button type="button" onClick={upload} disabled={templateBusy}>
             <FileUp className="mr-2 h-4 w-4" />
-            {busy ? 'Uploading...' : 'Upload and approve'}
+            {templateBusy ? 'Uploading...' : 'Upload and approve'}
           </Button>
           {template && (
             <Button asChild type="button" variant="outline">
@@ -281,13 +304,15 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
           )}
         </div>
         {template && (
-          <div className="grid gap-3 rounded-sm border border-ink-100 bg-white p-3 md:grid-cols-2">
+          <div className="grid gap-4">
             <SignatureUpload
               title="HOD signature"
               inputRef={hodSignatureRef}
               signature={template.signatures?.hod ?? null}
               slot="hod"
-              busy={busy}
+              busy={signatureBusy.hod}
+              message={signatureMessages.hod}
+              cacheVersion={signatureVersion}
               onUpload={uploadSignature}
             />
             <SignatureUpload
@@ -295,7 +320,9 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
               inputRef={deputySignatureRef}
               signature={template.signatures?.deputyHod ?? null}
               slot="deputyHod"
-              busy={busy}
+              busy={signatureBusy.deputyHod}
+              message={signatureMessages.deputyHod}
+              cacheVersion={signatureVersion}
               onUpload={uploadSignature}
             />
           </div>
@@ -399,8 +426,8 @@ export function CertificateTemplateCard({ initialTemplate }: { initialTemplate: 
                     className="grid grid-cols-2 gap-4 text-center text-ink-900"
                     style={{ fontSize: `${0.72 * (layout.signatureScale / 100)}rem` }}
                   >
-                    <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} showLabel={layout.showSignatureLabels} />
-                    <SignaturePreview slot="deputyHod" signature={template.signatures?.deputyHod ?? null} showLabel={layout.showSignatureLabels} />
+                    <SignaturePreview slot="hod" signature={template.signatures?.hod ?? null} showLabel={layout.showSignatureLabels} cacheVersion={signatureVersion} />
+                    <SignaturePreview slot="deputyHod" signature={template.signatures?.deputyHod ?? null} showLabel={layout.showSignatureLabels} cacheVersion={signatureVersion} />
                   </div>
                 </DraggableBlock>
               )}
@@ -618,6 +645,8 @@ function SignatureUpload({
   signature,
   slot,
   busy,
+  message,
+  cacheVersion,
   onUpload,
 }: {
   title: string;
@@ -625,24 +654,41 @@ function SignatureUpload({
   signature: TemplateSignature | null;
   slot: SignatureSlot;
   busy: boolean;
+  message: string;
+  cacheVersion: number;
   onUpload: (slot: SignatureSlot) => void;
 }) {
+  const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
   return (
-    <div className="grid gap-3 rounded-sm border border-ink-100 bg-ink-50/50 p-3">
-      <div className="flex items-start gap-2">
-        <PenLine className="mt-0.5 h-4 w-4 text-accent" />
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink-900">{title}</p>
-          <p className="mt-1 truncate text-xs text-ink-500">
-            {signature?.originalFilename ?? 'PNG or JPEG signature image'}
-          </p>
+    <div className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+      <div className="grid gap-3">
+        <div className="flex items-start gap-2">
+          <PenLine className="mt-0.5 h-4 w-4 text-accent" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink-900">{title}</p>
+            <p className="mt-1 truncate text-xs text-ink-500">
+              {signature?.originalFilename ?? 'PNG or JPEG signature image'}
+            </p>
+            {signature && (
+              <p className="mt-1 text-xs text-ink-500">
+                {signature.mimeType} - {Math.round(signature.sizeBytes / 1024)} KB - uploaded {formatDate(signature.uploadedAt)}
+              </p>
+            )}
+          </div>
+        </div>
+        <input ref={inputRef} type="file" accept="image/png,image/jpeg" className="block w-full text-xs text-ink-700" />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" variant="outline" onClick={() => onUpload(slot)} disabled={busy}>
+            <FileUp className="mr-2 h-4 w-4" />
+            {busy ? `Uploading ${label}...` : `Upload ${label}`}
+          </Button>
+          {message && <p className="text-xs text-ink-600">{message}</p>}
         </div>
       </div>
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg" className="block w-full text-xs text-ink-700" />
-      <Button type="button" variant="outline" onClick={() => onUpload(slot)} disabled={busy}>
-        <FileUp className="mr-2 h-4 w-4" />
-        Upload {slot === 'hod' ? 'HOD' : 'Dep. HOD'}
-      </Button>
+      <div className="rounded-sm border border-ink-100 bg-ink-50/60 p-3">
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-ink-500">Current preview</p>
+        <SignaturePreview slot={slot} signature={signature} showLabel cacheVersion={cacheVersion} />
+      </div>
     </div>
   );
 }
@@ -651,13 +697,15 @@ function SignaturePreview({
   slot,
   signature,
   showLabel,
+  cacheVersion = 0,
 }: {
   slot: SignatureSlot;
   signature: TemplateSignature | null;
   showLabel: boolean;
+  cacheVersion?: number;
 }) {
   const label = slot === 'hod' ? 'HOD' : 'Dep. HOD';
-  const src = signature ? signatureFileUrl(slot, signature.uploadedAt) : '';
+  const src = signature ? signatureFileUrl(slot, signature.uploadedAt, cacheVersion) : '';
   return (
     <div>
       <div className="flex h-10 items-end justify-center">
@@ -698,8 +746,9 @@ function VisibilityToggle({
   );
 }
 
-function signatureFileUrl(slot: SignatureSlot, uploadedAt: string): string {
-  return `/dashboard/settings/certificate-template/signatures/${slot}/file?v=${encodeURIComponent(uploadedAt)}`;
+function signatureFileUrl(slot: SignatureSlot, uploadedAt: string, cacheVersion = 0): string {
+  const version = cacheVersion ? `${uploadedAt}-${cacheVersion}` : uploadedAt;
+  return `/dashboard/settings/certificate-template/signatures/${slot}/file?v=${encodeURIComponent(version)}`;
 }
 
 function NudgeButton({
