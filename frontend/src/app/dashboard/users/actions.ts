@@ -27,6 +27,7 @@ export async function createUserAction(formData: FormData): Promise<void> {
     revalidatePath('/dashboard/users');
     redirect(`/dashboard/users/${created.id}?${resultParam('success', 'User invited. Share the initial password securely.')}`);
   } catch (error) {
+    if (isNextRedirect(error)) throw error;
     const message = error instanceof ApiError ? error.message : 'Could not invite user.';
     redirect(`/dashboard/users/new?${resultParam('error', message)}`);
   }
@@ -48,6 +49,7 @@ export async function updateUserAction(formData: FormData): Promise<void> {
     revalidatePath(`/dashboard/users/${userId}`);
     redirect(`/dashboard/users/${userId}?${resultParam('success', 'User profile updated.')}`);
   } catch (error) {
+    if (isNextRedirect(error)) throw error;
     const message = error instanceof ApiError ? error.message : 'Could not update user.';
     redirect(`/dashboard/users/${userId}?${resultParam('error', message)}`);
   }
@@ -66,6 +68,7 @@ export async function assignRolesAction(formData: FormData): Promise<void> {
     revalidatePath(`/dashboard/users/${userId}`);
     redirect(`/dashboard/users/${userId}?${resultParam('success', 'User roles updated.')}`);
   } catch (error) {
+    if (isNextRedirect(error)) throw error;
     const message = error instanceof ApiError ? error.message : 'Could not update user roles.';
     redirect(`/dashboard/users/${userId}?${resultParam('error', message)}`);
   }
@@ -81,7 +84,13 @@ export async function deactivateUserAction(formData: FormData): Promise<void> {
     revalidatePath('/dashboard/users');
     redirect(`/dashboard/users?${resultParam('success', 'User deactivated and active sessions revoked.')}`);
   } catch (error) {
+    if (isNextRedirect(error)) throw error;
     const message = error instanceof ApiError ? error.message : 'Could not deactivate user.';
     redirect(`/dashboard/users/${userId}?${resultParam('error', message)}`);
   }
+}
+
+function isNextRedirect(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'digest' in error &&
+    typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT');
 }
