@@ -221,6 +221,15 @@ JOIN roles r       ON r.code = rg.role_code AND r.tenant_id IS NULL
 JOIN permissions p ON p.code = rg.permission_code
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
+-- A Tenant Admin has full authority inside their own organization. The only
+-- excluded permission is platform.manage, which is reserved for Branddarrow.
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+JOIN permissions p ON p.code <> 'platform.manage'
+WHERE r.code = 'TENANT_ADMIN' AND r.tenant_id IS NULL
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
 
 -- -----------------------------------------------------------------------------
 -- 5. Branddarrow platform tenant (id pinned to match existing install)
