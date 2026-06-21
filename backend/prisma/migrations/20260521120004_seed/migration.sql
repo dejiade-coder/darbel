@@ -145,6 +145,8 @@ WITH role_grants(role_code, permission_code) AS (VALUES
     ('TENANT_ADMIN', 'audit.view'),
     ('TENANT_ADMIN', 'audit.export'),
     ('TENANT_ADMIN', 'handler.view'),
+    ('TENANT_ADMIN', 'payment.record'),
+    ('TENANT_ADMIN', 'payment.approve'),
     ('TENANT_ADMIN', 'payment.view'),
     ('TENANT_ADMIN', 'medical.view_results'),
     ('TENANT_ADMIN', 'medical.view_sensitive'),
