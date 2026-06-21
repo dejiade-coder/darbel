@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -9,7 +9,7 @@ import {
   type AuthenticatedRequest,
 } from '../../common/decorators/auth.decorators';
 import { RolesService } from './roles.service';
-import { ListRolesQueryDto } from './roles.dto';
+import { CreateRoleDto, ListRolesQueryDto } from './roles.dto';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('roles')
@@ -50,5 +50,11 @@ export class RolesController {
       clientIp: req.ip,
       userAgent: req.header('user-agent'),
     });
+  }
+
+  @Post()
+  @Permissions('role.manage')
+  create(@CurrentUser() actor: AuthenticatedActor, @Body(new ZodValidationPipe(CreateRoleDto)) dto: CreateRoleDto, @Req() req: AuthenticatedRequest) {
+    return this.roles.create({ userId: actor.userId, tenantId: actor.tenantId, userEmail: actor.email, requestId: req.requestId!, clientIp: req.ip, userAgent: req.header('user-agent') }, dto);
   }
 }

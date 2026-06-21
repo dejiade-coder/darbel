@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import type { ListRolesQueryDto } from './roles.dto';
+import type { CreateRoleDto } from './roles.dto';
+import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
 
 export interface RolePublicDto {
   id: string;
@@ -66,6 +68,35 @@ export class RolesService {
         description: p.description,
         isSensitive: p.isSensitive,
       }));
+    });
+  }
+
+  async create(ctx: ActorContext, dto: CreateRoleDto): Promise<RolePublicDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      if (dto.permissionCodes.includes('platform.manage')) {
+        throw new ResourceNotFoundException('Permission', 'platform.manage');
+      }
+      const existing = await tx.role.findFirst({ where: { code: dto.code, tenantId: ctx.tenantId } });
+      if (existing) throw new ResourceConflictException('A tenant role with this code already exists');
+      const permissions = await tx.permission.findMany({ where: { code: { in: dto.permissionCodes } } });
+      if (permissions.length !== new Set(dto.permissionCodes).size) {
+        throw new ResourceNotFoundException('One or more permissions');
+      }
+      const role = await tx.role.create({
+        data: {
+          code: dto.code,
+          displayName: dto.displayName,
+          description: dto.description || null,
+          tenantId: ctx.tenantId,
+          permissions: { createMany: { data: permissions.map((permission) => ({ permissionId: permission.id, grantedBy: ctx.userId })) } },
+        },
+        include: { permissions: { include: { permission: true } } },
+      });
+      return {
+        id: role.id, code: role.code, displayName: role.displayName, description: role.description,
+        isSystemRole: role.isSystemRole, tenantId: role.tenantId,
+        permissions: role.permissions.map((rp) => ({ code: rp.permission.code, module: rp.permission.module, isSensitive: rp.permission.isSensitive })),
+      };
     });
   }
 }

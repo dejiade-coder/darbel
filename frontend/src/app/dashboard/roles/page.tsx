@@ -1,20 +1,30 @@
 import type React from 'react';
 import { AlertTriangle, KeyRound, Layers3, ShieldCheck, UsersRound } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
-import type { RolePublic } from '@/lib/api/types';
+import type { PermissionPublic, RolePublic } from '@/lib/api/types';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { readActorFromAccessToken } from '@/lib/auth/claims';
+import { createTenantRoleAction } from './actions';
 
 export const metadata = { title: 'Roles & Permissions' };
 
-export default async function RolesPage() {
+export default async function RolesPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string }> }) {
+  const actor = await readActorFromAccessToken();
+  const params = await searchParams;
   let roles: RolePublic[] = [];
+  let availablePermissions: PermissionPublic[] = [];
   let error: string | null = null;
   try {
     roles = await apiFetch<RolePublic[]>('/roles?includeSystem=true', {
       authenticated: true,
     });
+    if (actor?.permissions.includes('role.manage')) {
+      availablePermissions = await apiFetch<PermissionPublic[]>('/roles/permissions', { authenticated: true });
+    }
   } catch (e) {
     error = e instanceof ApiError ? e.payload.message : 'Failed to load roles';
   }
@@ -38,6 +48,31 @@ export default async function RolesPage() {
         <Alert variant="danger" title="Could not load roles">
           {error}
         </Alert>
+      )}
+      {params?.error && <Alert variant="danger">{params.error}</Alert>}
+      {params?.success && <Alert variant="success">{params.success}</Alert>}
+
+      {actor?.permissions.includes('role.manage') && (
+        <section className="mb-6 rounded-sm border border-ink-200 bg-white p-5 shadow-sm">
+          <h2 className="font-display text-2xl font-medium text-ink-900">Create tenant role</h2>
+          <p className="mt-1 text-sm text-ink-600">Build a permission bundle, then assign it to a staff member from Users.</p>
+          <form action={createTenantRoleAction} className="mt-5 space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <Input name="displayName" required placeholder="Role name" />
+              <Input name="code" required maxLength={40} placeholder="ROLE_CODE" />
+              <Input name="description" maxLength={500} placeholder="What this role can do" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {availablePermissions.filter((permission) => permission.code !== 'platform.manage').map((permission) => (
+                <label key={permission.code} className="flex gap-2 rounded-sm border border-ink-100 p-3 text-sm text-ink-700">
+                  <input name="permissionCodes" type="checkbox" value={permission.code} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
+                  <span><span className="block font-mono text-xs font-semibold text-ink-900">{permission.code}</span><span className="mt-1 block text-xs text-ink-500">{permission.description}</span></span>
+                </label>
+              ))}
+            </div>
+            <Button type="submit">Create role</Button>
+          </form>
+        </section>
       )}
 
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
