@@ -214,7 +214,7 @@ export function PaymentPanel({
             )}
           </div>
 
-          {!paymentGateComplete && (
+          {!paymentGateComplete && canRecordPayment && (
             <>
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Amount (NGN)" id="paymentAmount" type="number" value={amount} onChange={setAmount} disabled={!canRecord || Boolean(tradeCategoryFee)} />
