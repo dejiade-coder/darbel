@@ -19,6 +19,7 @@ import { MedicalModule } from './modules/medical/medical.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { TenantSettingsModule } from './modules/tenant-settings/tenant-settings.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { RequestIdMiddleware } from './common/interceptors/request-id.middleware';
 
@@ -81,6 +82,7 @@ import { RequestIdMiddleware } from './common/interceptors/request-id.middleware
     CertificatesModule,
     ReportsModule,
     TenantSettingsModule,
+    TenantsModule,
   ],
   providers: [
     {

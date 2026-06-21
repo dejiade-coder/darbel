@@ -17,6 +17,7 @@ import {
   UserCog,
   Users,
   Tag,
+  Building2,
   Menu,
   X,
 } from 'lucide-react';
@@ -31,6 +32,7 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutGrid },
+  { href: '/dashboard/tenants', label: 'Tenants', icon: Building2, requireAny: ['platform.manage'] },
   { href: '/dashboard/registrations', label: 'Registrations', icon: ClipboardPlus, requireAny: ['handler.view'] },
   { href: '/dashboard/payments', label: 'Payments', icon: CreditCard, requireAny: ['payment.view'] },
   { href: '/dashboard/medical', label: 'Medical', icon: FlaskConical, requireAny: ['medical.view_results'] },

@@ -47,6 +47,18 @@ export interface UserListResponse {
   nextCursor: string | null;
 }
 
+export interface TenantPublic {
+  id: string;
+  code: string;
+  legalName: string;
+  displayName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  isActive: boolean;
+  createdAt: string;
+  userCount: number;
+}
+
 export interface RolePublic {
   id: string;
   code: string;
