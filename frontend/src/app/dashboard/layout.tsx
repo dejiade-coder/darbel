@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             mfaEnabled={profile?.mfaEnabled ?? false}
           />
         </div>
-        <main className="flex-1 px-8 py-8 print:p-0">
+        <main className="flex-1 px-4 py-5 sm:px-8 sm:py-8 print:p-0">
           <div className="mx-auto max-w-7xl animate-fade-in print:max-w-none print:animate-none">{children}</div>
         </main>
       </div>

@@ -17,26 +17,26 @@ export function TopBar({ fullName, email, isPlatformOperator, mfaEnabled }: TopB
   const initials = getInitials(fullName);
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-ink-200 bg-white/85 px-8 backdrop-blur">
+    <header className="flex h-16 items-center justify-between border-b border-ink-200 bg-white/85 pl-16 pr-4 backdrop-blur sm:px-8">
       <div>
         <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
           {isPlatformOperator ? 'Platform Console' : 'Tenant Console'}
         </p>
       </div>
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-2 sm:gap-5">
         {!mfaEnabled && !isPlatformOperator ? (
-          <Badge variant="warning" className="gap-1.5">
+          <Badge variant="warning" className="hidden gap-1.5 sm:inline-flex">
             <ShieldAlert className="h-3 w-3" />
             MFA not enabled
           </Badge>
         ) : (
-          <Badge variant="success" className="gap-1.5">
+          <Badge variant="success" className="hidden gap-1.5 sm:inline-flex">
             <ShieldCheck className="h-3 w-3" />
             MFA enabled
           </Badge>
         )}
-        <div className="flex items-center gap-3">
-          <div className="text-right">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden text-right sm:block">
             <p className="text-sm font-medium leading-tight text-ink-800">{fullName}</p>
             <p className="text-xs text-ink-500">{email}</p>
           </div>
