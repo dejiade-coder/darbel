@@ -11,6 +11,7 @@ import { NotificationProvidersCard, type NotificationProviders } from './notific
 import { MessageTemplatesCard, type MessageTemplates } from './message-templates-card';
 import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateMessageTemplatesAction, updateNotificationProvidersAction } from './actions';
 import { Alert } from '@/components/ui/alert';
+import { redirect } from 'next/navigation';
 
 export const metadata = { title: 'Settings' };
 
@@ -71,6 +72,7 @@ type CertificateTemplate = {
 export default async function SettingsPage() {
   const actor = await readActorFromAccessToken();
   if (!actor) return null;
+  if (!actor.permissions.includes('tenant.update_own')) redirect('/dashboard');
 
   let me: UserPublic | null = null;
   let certificateTemplate: CertificateTemplate = null;

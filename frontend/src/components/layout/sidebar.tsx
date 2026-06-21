@@ -39,10 +39,10 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/certificates', label: 'Certificates', icon: BadgeCheck, requireAny: ['certificate.view'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, requireAny: ['report.view'] },
   { href: '/dashboard/readiness', label: 'Readiness', icon: ListChecks, requireAny: ['tenant.view', 'report.view'] },
-  { href: '/dashboard/users', label: 'Users', icon: Users, requireAny: ['user.view'] },
+  { href: '/dashboard/users', label: 'Users', icon: Users, requireAny: ['user.create'] },
   { href: '/dashboard/roles', label: 'Roles & Permissions', icon: UserCog, requireAny: ['role.view'] },
   { href: '/dashboard/audit', label: 'Audit log', icon: FileSearch, requireAny: ['audit.view'] },
-  { href: '/dashboard/settings', label: 'Settings', icon: ClipboardList },
+  { href: '/dashboard/settings', label: 'Settings', icon: ClipboardList, requireAny: ['tenant.update_own'] },
   { href: '/dashboard/trade-categories', label: 'Trade Categories', icon: Tag, requireAny: ['trade.set_fee'] },
 ];
 
