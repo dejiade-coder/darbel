@@ -167,6 +167,15 @@ export async function updateMessageTemplatesAction(
   return { success: 'Message templates saved.' };
 }
 
+export async function updateBrandingAction(formData: FormData): Promise<void> {
+  try {
+    await apiFetch('/tenant-settings/branding', { method: 'PATCH', authenticated: true, body: { applicationName: String(formData.get('applicationName') ?? ''), accentColor: String(formData.get('accentColor') ?? '') } });
+  } catch (e) { redirect(`/dashboard/settings?error=${encodeURIComponent(e instanceof ApiError ? e.payload.message : 'Could not save branding.')}`); }
+  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/settings');
+  redirect('/dashboard/settings?success=Branding%20saved.%20Refresh%20the%20dashboard%20to%20see%20the%20new%20identity.');
+}
+
 function templateFromForm(formData: FormData, key: string) {
   return {
     subject: String(formData.get(`${key}.subject`) ?? ''),

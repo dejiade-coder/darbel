@@ -11,6 +11,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Refresh profile from server so we always have the latest fullName/permissions
   let profile: UserPublic | null = null;
+  let brandName = 'Darbel';
   try {
     profile = await apiFetch<UserPublic>('/users/me', { authenticated: true });
   } catch (e) {
@@ -19,11 +20,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
     // Fall through with claims-only context; the UI degrades gracefully.
   }
+  try {
+    const branding = await apiFetch<{ applicationName: string }>('/tenant-settings/branding', { authenticated: true });
+    brandName = branding.applicationName || brandName;
+  } catch {}
 
   return (
     <div className="flex min-h-screen bg-parchment">
       <div className="print:hidden">
-        <Sidebar permissions={actor.permissions} />
+        <Sidebar permissions={actor.permissions} brandName={brandName} />
       </div>
       <div className="flex flex-1 flex-col print:block print:w-full">
         <div className="print:hidden">

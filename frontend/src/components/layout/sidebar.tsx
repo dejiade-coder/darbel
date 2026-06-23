@@ -46,7 +46,7 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/trade-categories', label: 'Trade Categories', icon: Tag, requireAny: ['trade.set_fee'] },
 ];
 
-export function Sidebar({ permissions }: { permissions: string[] }) {
+export function Sidebar({ permissions, brandName = 'Darbel' }: { permissions: string[]; brandName?: string }) {
   const pathname = usePathname();
   const visible = ITEMS.filter(
     (item) => !item.requireAny || item.requireAny.some((permission) => permissions.includes(permission)),
@@ -55,25 +55,25 @@ export function Sidebar({ permissions }: { permissions: string[] }) {
   return (
     <>
       <aside className="hidden w-64 flex-col border-r border-ink-200 bg-white lg:flex">
-        <Brand />
+        <Brand name={brandName} />
         <Navigation items={visible} pathname={pathname} />
         <footer className="border-t border-ink-100 px-4 py-3 text-[10px] uppercase tracking-wider text-ink-400">
           Phase 1 - v0.1.0
         </footer>
       </aside>
-      <MobileNavigation items={visible} pathname={pathname} />
+      <MobileNavigation items={visible} pathname={pathname} brandName={brandName} />
     </>
   );
 }
 
-function Brand() {
+function Brand({ name = 'Darbel' }: { name?: string }) {
   return (
     <div className="flex h-16 items-center gap-3 px-6">
       <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-accent text-parchment">
         <ShieldCheck className="h-4 w-4" strokeWidth={1.5} />
       </div>
       <div>
-        <p className="font-display text-base font-medium leading-none text-ink-900">Darbel</p>
+        <p className="font-display text-base font-medium leading-none text-ink-900">{name}</p>
         <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em] text-ink-500">Branddarrow</p>
       </div>
     </div>
@@ -111,7 +111,7 @@ function Navigation({
   );
 }
 
-function MobileNavigation({ items, pathname }: { items: NavItem[]; pathname: string }) {
+function MobileNavigation({ items, pathname, brandName }: { items: NavItem[]; pathname: string; brandName: string }) {
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -128,7 +128,7 @@ function MobileNavigation({ items, pathname }: { items: NavItem[]; pathname: str
         <Dialog.Overlay className="fixed inset-0 z-40 bg-ink-900/30 backdrop-blur-[1px] lg:hidden" />
         <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,86vw)] flex-col bg-white shadow-xl lg:hidden">
           <div className="flex items-center justify-between border-b border-ink-200">
-            <Brand />
+            <Brand name={brandName} />
             <Dialog.Close asChild>
               <button
                 type="button"

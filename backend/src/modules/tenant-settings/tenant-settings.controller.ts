@@ -6,7 +6,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { TenantSettingsService, type CertificateTemplateLayout, type UploadedTemplateFile } from './tenant-settings.service';
-import { UpdateMessageTemplatesDto, UpdateNotificationProvidersDto } from './tenant-settings.dto';
+import { UpdateBrandingDto, UpdateMessageTemplatesDto, UpdateNotificationProvidersDto } from './tenant-settings.dto';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('tenant-settings')
@@ -34,6 +34,14 @@ export class TenantSettingsController {
   getMessageTemplates(@CurrentUser() actor: AuthenticatedActor, @Req() req: AuthenticatedRequest) {
     return this.settings.getMessageTemplates(toContext(actor, req));
   }
+
+  @Get('branding')
+  @Permissions('tenant.view')
+  getBranding(@CurrentUser() actor: AuthenticatedActor, @Req() req: AuthenticatedRequest) { return this.settings.getBranding(toContext(actor, req)); }
+
+  @Patch('branding')
+  @Permissions('tenant.update_own')
+  updateBranding(@CurrentUser() actor: AuthenticatedActor, @Body(new ZodValidationPipe(UpdateBrandingDto)) body: UpdateBrandingDto, @Req() req: AuthenticatedRequest) { return this.settings.updateBranding(toContext(actor, req), body); }
 
   @Patch('message-templates')
   @Permissions('tenant.update_own')

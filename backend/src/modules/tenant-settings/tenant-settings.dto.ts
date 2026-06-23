@@ -35,3 +35,9 @@ export const UpdateMessageTemplatesDto = z.object({
 });
 
 export type UpdateMessageTemplatesDto = z.infer<typeof UpdateMessageTemplatesDto>;
+
+export const UpdateBrandingDto = z.object({
+  applicationName: z.string().trim().min(2).max(80),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+export type UpdateBrandingDto = z.infer<typeof UpdateBrandingDto>;

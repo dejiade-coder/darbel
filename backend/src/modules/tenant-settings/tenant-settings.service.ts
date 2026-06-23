@@ -6,11 +6,12 @@ import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { ActorContext, PrismaService } from '../../database/prisma.service';
 import { ResourceConflictException, ResourceNotFoundException } from '../../common/errors/domain.exceptions';
-import type { UpdateMessageTemplatesDto, UpdateNotificationProvidersDto } from './tenant-settings.dto';
+import type { UpdateBrandingDto, UpdateMessageTemplatesDto, UpdateNotificationProvidersDto } from './tenant-settings.dto';
 
 const TEMPLATE_KEY = 'certificate_template';
 const NOTIFICATION_PROVIDERS_KEY = 'notification_providers';
 const MESSAGE_TEMPLATES_KEY = 'message_templates';
+const BRANDING_KEY = 'branding';
 const MAX_TEMPLATE_SIZE = 8 * 1024 * 1024;
 const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024;
 const ALLOWED_TEMPLATE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
@@ -132,6 +133,8 @@ export interface MessageTemplatesDto {
   updatedAt: string | null;
 }
 
+export interface BrandingDto { applicationName: string; accentColor: string; updatedAt: string | null; }
+
 type StoredMessageTemplates = MessageTemplatesDto;
 
 @Injectable()
@@ -198,6 +201,22 @@ export class TenantSettingsService {
         where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: MESSAGE_TEMPLATES_KEY } },
       });
       return normalizeMessageTemplates(setting?.settingValue);
+    });
+  }
+
+  async getBranding(ctx: ActorContext): Promise<BrandingDto> {
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      const setting = await tx.tenantSetting.findUnique({ where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: BRANDING_KEY } } });
+      const value = setting?.settingValue as unknown as Partial<BrandingDto> | undefined;
+      return { applicationName: value?.applicationName || 'Darbel', accentColor: value?.accentColor || '#0f5257', updatedAt: value?.updatedAt || null };
+    });
+  }
+
+  async updateBranding(ctx: ActorContext, dto: UpdateBrandingDto): Promise<BrandingDto> {
+    const next: BrandingDto = { ...dto, updatedAt: new Date().toISOString() };
+    return this.prisma.runWithContext(ctx, async (tx) => {
+      await tx.tenantSetting.upsert({ where: { tenantId_settingKey: { tenantId: ctx.tenantId, settingKey: BRANDING_KEY } }, create: { tenantId: ctx.tenantId, settingKey: BRANDING_KEY, settingValue: next as unknown as Prisma.InputJsonValue, updatedBy: ctx.userId }, update: { settingValue: next as unknown as Prisma.InputJsonValue, updatedBy: ctx.userId } });
+      return next;
     });
   }
 

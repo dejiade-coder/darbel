@@ -9,7 +9,9 @@ import { MfaCard } from './mfa-card';
 import { CertificateTemplateCard } from './certificate-template-card';
 import { NotificationProvidersCard, type NotificationProviders } from './notification-providers-card';
 import { MessageTemplatesCard, type MessageTemplates } from './message-templates-card';
-import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateMessageTemplatesAction, updateNotificationProvidersAction } from './actions';
+import { changePasswordAction, startMfaEnrollAction, confirmMfaEnrollAction, disableMfaAction, updateBrandingAction, updateMessageTemplatesAction, updateNotificationProvidersAction } from './actions';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { redirect } from 'next/navigation';
 
@@ -68,6 +70,7 @@ type CertificateTemplate = {
   };
   fileUrl: string;
 } | null;
+type Branding = { applicationName: string; accentColor: string };
 
 export default async function SettingsPage() {
   const actor = await readActorFromAccessToken();
@@ -79,8 +82,9 @@ export default async function SettingsPage() {
   let notificationProviders: NotificationProviders | null = null;
   let messageTemplates: MessageTemplates | null = null;
   let loadError: string | null = null;
+  let branding: Branding = { applicationName: 'Darbel', accentColor: '#0f5257' };
   try {
-    const [profile, template, providers, templates] = await Promise.all([
+    const [profile, template, providers, templates, currentBranding] = await Promise.all([
       apiFetch<UserPublic>('/users/me', { authenticated: true }),
       actor.permissions.includes('tenant.view')
         ? apiFetch<CertificateTemplate>('/tenant-settings/certificate-template', { authenticated: true })
@@ -91,11 +95,13 @@ export default async function SettingsPage() {
       actor.permissions.includes('tenant.view')
         ? apiFetch<MessageTemplates>('/tenant-settings/message-templates', { authenticated: true })
         : Promise.resolve(null),
+      actor.permissions.includes('tenant.view') ? apiFetch<Branding>('/tenant-settings/branding', { authenticated: true }) : Promise.resolve(branding),
     ]);
     me = profile;
     certificateTemplate = template;
     notificationProviders = providers;
     messageTemplates = templates;
+    branding = currentBranding;
   } catch (e) {
     loadError = e instanceof ApiError ? e.payload.message : 'Could not load profile';
   }
@@ -147,6 +153,14 @@ export default async function SettingsPage() {
           confirmAction={confirmMfaEnrollAction}
           disableAction={disableMfaAction}
         />
+
+        {actor.permissions.includes('tenant.update_own') && (
+          <form action={updateBrandingAction} className="rounded-sm border border-ink-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-ink-900">Organization branding</h2><p className="mt-1 text-sm text-ink-600">Set the identity your staff see in this tenant workspace.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_110px]"><Input name="applicationName" defaultValue={branding.applicationName} required /><Input name="accentColor" type="color" defaultValue={branding.accentColor} title="Accent color" /></div>
+            <div className="mt-4 flex justify-end"><Button type="submit">Save branding</Button></div>
+          </form>
+        )}
 
         {actor.permissions.includes('tenant.update_own') && (
           <CertificateTemplateCard initialTemplate={certificateTemplate} />
