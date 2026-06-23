@@ -44,6 +44,7 @@ export class UsersService {
       if (missing.length > 0) {
         throw new ResourceNotFoundException(`Role(s): ${missing.join(', ')}`);
       }
+      await assertPlatformRoleAssignment(tx, ctx.userId, roles);
 
       const created = await tx.user.create({
         data: {
@@ -177,6 +178,7 @@ export class UsersService {
       if (missing.length > 0) {
         throw new ResourceNotFoundException(`Role(s): ${missing.join(', ')}`);
       }
+      await assertPlatformRoleAssignment(tx, ctx.userId, roles);
 
       // Replace role set atomically
       await tx.userRole.deleteMany({ where: { userId: id } });
@@ -267,3 +269,9 @@ function toPublic(u: UserWithRoles): UserPublicDto {
 // when Prisma client types are stubbed (e.g. when the engine binary cannot be
 // fetched during generation in restricted environments).
 type RoleBasic = { id: string; code: string };
+
+async function assertPlatformRoleAssignment(tx: Prisma.TransactionClient, actorId: string, roles: RoleBasic[]): Promise<void> {
+  if (!roles.some((role) => role.code === 'SUPER_ADMIN')) return;
+  const actor = await tx.user.findUnique({ where: { id: actorId }, include: { tenant: { select: { isPlatformOperator: true } } } });
+  if (!actor?.tenant.isPlatformOperator) throw new ResourceConflictException('Tenant administrators cannot assign the Super Admin role');
+}

@@ -28,9 +28,10 @@ export class RolesService {
 
   async list(ctx: ActorContext, query: ListRolesQueryDto): Promise<RolePublicDto[]> {
     return this.prisma.runWithContext(ctx, async (tx) => {
+      const actor = await tx.user.findUnique({ where: { id: ctx.userId }, include: { tenant: { select: { isPlatformOperator: true } } } });
       const where: Prisma.RoleWhereInput = {
         OR: [
-          ...(query.includeSystem ? [{ tenantId: null }] : []),
+          ...(query.includeSystem ? [{ tenantId: null, ...(actor?.tenant.isPlatformOperator ? {} : { code: { not: 'SUPER_ADMIN' } }) }] : []),
           { tenantId: ctx.tenantId },
         ],
       };
@@ -59,7 +60,9 @@ export class RolesService {
 
   async listPermissions(ctx: ActorContext): Promise<PermissionPublicDto[]> {
     return this.prisma.runWithContext(ctx, async (tx) => {
+      const actor = await tx.user.findUnique({ where: { id: ctx.userId }, include: { tenant: { select: { isPlatformOperator: true } } } });
       const perms = await tx.permission.findMany({
+        where: actor?.tenant.isPlatformOperator ? undefined : { code: { not: 'platform.manage' } },
         orderBy: [{ module: 'asc' }, { code: 'asc' }],
       });
       return perms.map((p: PermissionRow) => ({
