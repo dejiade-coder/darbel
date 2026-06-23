@@ -126,6 +126,10 @@ export class UsersService {
         where: { id, deletedAt: null },
       });
       if (!existing) throw new ResourceNotFoundException('User', id);
+      const isDeactivating = dto.isActive === false && existing.isActive;
+      if (isDeactivating && existing.id === ctx.userId) {
+        throw new ResourceConflictException('You cannot deactivate your own account');
+      }
       const updated = await tx.user.update({
         where: { id },
         data: {
@@ -135,6 +139,12 @@ export class UsersService {
         },
         include: { roles: { include: { role: true } } },
       });
+      if (isDeactivating) {
+        await tx.session.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
       return toPublic(updated);
     });
   }

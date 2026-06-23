@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Ban, KeyRound, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, KeyRound, ShieldCheck, UserRound } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
 import type { RolePublic, UserPublic } from '@/lib/api/types';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { formatDateTime } from '@/lib/utils';
-import { assignRolesAction, deactivateUserAction, resetUserPasswordAction, updateUserAction } from '../actions';
+import { assignRolesAction, resetUserPasswordAction, updateUserAction } from '../actions';
+import { UserStatusToggle } from './user-status-toggle';
 
 export const metadata = { title: 'User details' };
 
@@ -81,10 +82,6 @@ export default async function UserDetailPage({
             <Field label="Phone">
               <Input name="phone" defaultValue={user.phone ?? ''} maxLength={20} />
             </Field>
-            <label className="flex items-center gap-2 rounded-sm border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-800">
-              <input name="isActive" type="checkbox" defaultChecked={user.isActive} className="h-4 w-4 accent-[hsl(var(--primary))]" />
-              Account is active
-            </label>
             <div className="flex justify-end">
               <Button type="submit">Save profile</Button>
             </div>
@@ -96,20 +93,7 @@ export default async function UserDetailPage({
                 You are viewing your own account. Use another administrator account to deactivate this operator.
               </div>
             </div>
-          ) : (
-            <form action={deactivateUserAction} className="border-t border-ink-100 pt-4">
-              <input type="hidden" name="userId" value={user.id} />
-              <div className="rounded-sm border border-danger/25 bg-danger/5 p-3 text-sm text-danger">
-                Deactivation revokes active sessions and removes this user from normal access lists.
-              </div>
-              <div className="mt-3 flex justify-end">
-                <Button type="submit" variant="destructive">
-                  <Ban className="mr-2 h-4 w-4" />
-                  Deactivate user
-                </Button>
-              </div>
-            </form>
-          )}
+          ) : actor?.permissions.includes('user.update') ? <UserStatusToggle userId={user.id} userName={user.fullName} isActive={user.isActive} /> : null}
           {!isSelf && actor?.permissions.includes('user.reset_password') && (
             <form action={resetUserPasswordAction} className="border-t border-ink-100 pt-4">
               <input type="hidden" name="userId" value={user.id} />

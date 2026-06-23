@@ -42,7 +42,6 @@ export async function updateUserAction(formData: FormData): Promise<void> {
       body: {
         fullName: String(formData.get('fullName') ?? '').trim(),
         phone: String(formData.get('phone') ?? '').trim(),
-        isActive: formData.get('isActive') === 'on',
       },
     });
     revalidatePath('/dashboard/users');
@@ -52,6 +51,26 @@ export async function updateUserAction(formData: FormData): Promise<void> {
     if (isNextRedirect(error)) throw error;
     const message = error instanceof ApiError ? error.message : 'Could not update user.';
     redirect(`/dashboard/users/${userId}?${resultParam('error', message)}`);
+  }
+}
+
+export async function setUserStatusAction(
+  userId: string,
+  isActive: boolean,
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch(`/users/${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      authenticated: true,
+      body: { isActive },
+    });
+    revalidatePath('/dashboard/users');
+    revalidatePath(`/dashboard/users/${userId}`);
+    return {};
+  } catch (error) {
+    return {
+      error: error instanceof ApiError ? error.message : 'Could not update the account status.',
+    };
   }
 }
 
