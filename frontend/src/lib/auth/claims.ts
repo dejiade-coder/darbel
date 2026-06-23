@@ -6,6 +6,7 @@ export interface ActorClaims {
   userId: string;
   tenantId: string;
   email: string;
+  roleCodes: string[];
   permissions: string[];
   isPlatformOperator: boolean;
   mfaVerified: boolean;
@@ -30,6 +31,7 @@ export async function readActorFromAccessToken(): Promise<ActorClaims | null> {
       userId: payload.sub as string,
       tenantId: (payload.tid as string) ?? '',
       email: (payload.email as string) ?? '',
+      roleCodes: Array.isArray(payload.roles) ? payload.roles.filter((role): role is string => typeof role === 'string') : [],
       permissions: ((payload.perms as string[]) ?? []),
       isPlatformOperator: Boolean(payload.platformOp),
       mfaVerified: Boolean(payload.mfa),

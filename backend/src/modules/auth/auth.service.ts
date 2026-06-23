@@ -43,6 +43,7 @@ export interface TokenPair {
     mustChangePassword: boolean;
     mfaEnabled: boolean;
     isPlatformOperator: boolean;
+    roleCodes: string[];
     permissions: string[];
   };
 }
@@ -169,6 +170,7 @@ export class AuthService {
         // a flag and returning normal tokens. The frontend should redirect
         // to MFA enrollment.
         const permissions = collectPermissions(user);
+        const roleCodes = collectRoleCodes(user);
         const tokens = await this.issueTokens(
           tx,
           user.id,
@@ -178,6 +180,7 @@ export class AuthService {
           user.mustChangePassword,
           user.mfaEnabled,
           user.tenant.isPlatformOperator,
+          roleCodes,
           permissions,
           /* mfaVerified */ false,
           ctx.ipAddress,
@@ -220,6 +223,7 @@ export class AuthService {
           throw new InvalidMfaCodeException();
         }
         const permissions = collectPermissions(user);
+        const roleCodes = collectRoleCodes(user);
         return this.issueTokens(
           tx,
           user.id,
@@ -229,6 +233,7 @@ export class AuthService {
           user.mustChangePassword,
           user.mfaEnabled,
           user.tenant.isPlatformOperator,
+          roleCodes,
           permissions,
           /* mfaVerified */ true,
           ctx.ipAddress,
@@ -279,6 +284,7 @@ export class AuthService {
           data: { revokedAt: new Date(), lastUsedAt: new Date() },
         });
         const permissions = collectPermissions(session.user);
+        const roleCodes = collectRoleCodes(session.user);
         return this.issueTokens(
           tx,
           session.user.id,
@@ -288,6 +294,7 @@ export class AuthService {
           session.user.mustChangePassword,
           session.user.mfaEnabled,
           session.user.tenant.isPlatformOperator,
+          roleCodes,
           permissions,
           /* mfaVerified */ session.user.mfaEnabled, // preserve MFA state
           ctx.ipAddress,
@@ -411,6 +418,7 @@ export class AuthService {
     mustChangePassword: boolean,
     mfaEnabled: boolean,
     isPlatformOperator: boolean,
+    roleCodes: string[],
     permissions: string[],
     mfaVerified: boolean,
     ipAddress?: string,
@@ -420,6 +428,7 @@ export class AuthService {
       userId,
       tenantId,
       email,
+      roleCodes,
       permissions,
       isPlatformOperator,
       mfaVerified,
@@ -446,6 +455,7 @@ export class AuthService {
         mustChangePassword,
         mfaEnabled,
         isPlatformOperator,
+        roleCodes,
         permissions,
       },
     };
@@ -456,6 +466,7 @@ export class AuthService {
 type UserWithRoles = {
   roles: Array<{
     role: {
+      code: string;
       permissions: Array<{ permission: { code: string } }>;
     };
   }>;
@@ -469,4 +480,8 @@ function collectPermissions(user: UserWithRoles): string[] {
     }
   }
   return [...set].sort();
+}
+
+function collectRoleCodes(user: UserWithRoles): string[] {
+  return [...new Set(user.roles.map((assignment) => assignment.role.code))].sort();
 }

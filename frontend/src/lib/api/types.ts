@@ -12,6 +12,7 @@ export interface AuthenticatedUser {
   mustChangePassword: boolean;
   mfaEnabled: boolean;
   isPlatformOperator: boolean;
+  roleCodes: string[];
   permissions: string[];
 }
 

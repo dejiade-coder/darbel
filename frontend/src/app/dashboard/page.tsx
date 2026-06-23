@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
+import { getRestrictedWorkspace, type RestrictedWorkspace } from '@/lib/auth/workspace';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,19 @@ const emptySummary: Summary = {
 export default async function DashboardHome() {
   const actor = await readActorFromAccessToken();
   if (!actor) return null;
+  let restrictedWorkspace = getRestrictedWorkspace(actor.roleCodes, actor.isPlatformOperator);
+  if (!restrictedWorkspace && actor.roleCodes.length === 0) {
+    try {
+      const currentUser = await apiFetch<UserPublic>('/users/me', { authenticated: true });
+      restrictedWorkspace = getRestrictedWorkspace(
+        currentUser.roles.map((role) => role.code),
+        actor.isPlatformOperator,
+      );
+    } catch {
+      // The regular dashboard error state handles a failed profile request.
+    }
+  }
+  if (restrictedWorkspace) return <RestrictedWorkspaceHome workspace={restrictedWorkspace} />;
 
   let me: UserPublic | null = null;
   let summary = emptySummary;
@@ -237,6 +251,43 @@ export default async function DashboardHome() {
         </Panel>
       </section>
     </div>
+  );
+}
+
+function RestrictedWorkspaceHome({ workspace }: { workspace: Exclude<RestrictedWorkspace, null> }) {
+  const isFinance = workspace === 'finance' || workspace === 'finance_auditor';
+  const isAuditor = workspace === 'auditor' || workspace === 'finance_auditor';
+  const title = workspace === 'finance' ? 'Finance workspace' : workspace === 'auditor' ? 'Audit workspace' : 'Finance and audit workspace';
+  const description = workspace === 'finance'
+    ? 'Review and manage payment activity for your organization.'
+    : workspace === 'auditor'
+      ? 'Review compliance activity, records, and reporting without operational controls.'
+      : 'Review payment activity, audit records, and management reporting.';
+
+  return (
+    <div className="space-y-6">
+      <header className="rounded-sm border border-[#0c4a42]/20 bg-[#062f2d] p-7 text-white shadow-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/75">Focused workspace</p>
+        <h1 className="mt-3 font-display text-4xl font-medium">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/80">{description}</p>
+      </header>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {isFinance && <WorkspaceLink href="/dashboard/payments" icon={CreditCard} title="Payments" description="Record, review, approve, and reconcile payment activity." />}
+        {isAuditor && <WorkspaceLink href="/dashboard/audit" icon={FileSearch} title="Audit log" description="Review the recorded history of compliance and account activity." />}
+        <WorkspaceLink href="/dashboard/reports" icon={BarChart3} title="Reports" description="Open management reports and permitted exports." />
+      </section>
+    </div>
+  );
+}
+
+function WorkspaceLink({ href, icon: Icon, title, description }: { href: string; icon: React.ElementType; title: string; description: string }) {
+  return (
+    <Link href={href} className="group rounded-sm border border-ink-200 bg-white p-5 shadow-sm transition hover:border-accent/40">
+      <Icon className="h-5 w-5 text-accent" />
+      <p className="mt-4 text-lg font-semibold text-ink-900">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-ink-600">{description}</p>
+      <span className="mt-4 inline-flex items-center text-sm font-medium text-accent">Open <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
+    </Link>
   );
 }
 

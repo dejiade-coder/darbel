@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getRestrictedWorkspace, isWorkspaceRouteAllowed } from '@/lib/auth/workspace';
 
 interface NavItem {
   href: string;
@@ -46,10 +47,13 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/trade-categories', label: 'Trade Categories', icon: Tag, requireAny: ['trade.set_fee'] },
 ];
 
-export function Sidebar({ permissions, brandName = 'Darbel' }: { permissions: string[]; brandName?: string }) {
+export function Sidebar({ permissions, roleCodes = [], brandName = 'Darbel' }: { permissions: string[]; roleCodes?: string[]; brandName?: string }) {
   const pathname = usePathname();
+  const workspace = getRestrictedWorkspace(roleCodes);
   const visible = ITEMS.filter(
-    (item) => !item.requireAny || item.requireAny.some((permission) => permissions.includes(permission)),
+    (item) =>
+      (!item.requireAny || item.requireAny.some((permission) => permissions.includes(permission))) &&
+      isWorkspaceRouteAllowed(item.href, workspace),
   );
 
   return (

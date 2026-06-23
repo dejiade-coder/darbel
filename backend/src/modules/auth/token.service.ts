@@ -7,6 +7,7 @@ export interface AccessTokenClaims {
   userId: string;
   tenantId: string;
   email: string;
+  roleCodes: string[];
   permissions: string[];
   isPlatformOperator: boolean;
   mfaVerified: boolean;
@@ -43,6 +44,7 @@ export class TokenService {
         sub: claims.userId,
         tid: claims.tenantId,
         email: claims.email,
+        roles: claims.roleCodes,
         perms: claims.permissions,
         platformOp: claims.isPlatformOperator,
         mfa: claims.mfaVerified,

@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-screen bg-parchment">
       <div className="print:hidden">
-        <Sidebar permissions={actor.permissions} brandName={brandName} />
+        <Sidebar permissions={actor.permissions} roleCodes={profile?.roles.map((role) => role.code) ?? actor.roleCodes} brandName={brandName} />
       </div>
       <div className="flex flex-1 flex-col print:block print:w-full">
         <div className="print:hidden">
