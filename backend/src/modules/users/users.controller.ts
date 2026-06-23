@@ -20,6 +20,7 @@ import {
   AssignRolesDto,
   CreateUserDto,
   ListUsersQueryDto,
+  ResetUserPasswordDto,
   UpdateUserDto,
 } from './users.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -91,6 +92,12 @@ export class UsersController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.users.assignRoles(toContext(actor, req), id, dto);
+  }
+
+  @Post(':id/reset-password')
+  @Permissions('user.reset_password')
+  async resetPassword(@CurrentUser() actor: AuthenticatedActor, @Param('id', new ParseUUIDPipe()) id: string, @Body(new ZodValidationPipe(ResetUserPasswordDto)) dto: ResetUserPasswordDto, @Req() req: AuthenticatedRequest): Promise<void> {
+    await this.users.resetPassword(toContext(actor, req), id, dto.temporaryPassword);
   }
 
   @Delete(':id')

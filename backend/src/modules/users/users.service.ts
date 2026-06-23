@@ -197,6 +197,17 @@ export class UsersService {
       return toPublic(refreshed!);
     });
   }
+
+  async resetPassword(ctx: ActorContext, id: string, temporaryPassword: string): Promise<void> {
+    await this.prisma.runWithContext(ctx, async (tx) => {
+      const user = await tx.user.findFirst({ where: { id, deletedAt: null } });
+      if (!user) throw new ResourceNotFoundException('User', id);
+      this.passwordService.enforcePolicy(temporaryPassword, [user.email, user.fullName]);
+      const passwordHash = await this.passwordService.hash(temporaryPassword);
+      await tx.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true, passwordChangedAt: new Date(), isLocked: false, lockedUntil: null, failedLoginCount: 0 } });
+      await tx.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

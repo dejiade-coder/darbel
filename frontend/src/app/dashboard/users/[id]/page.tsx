@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { formatDateTime } from '@/lib/utils';
-import { assignRolesAction, deactivateUserAction, updateUserAction } from '../actions';
+import { assignRolesAction, deactivateUserAction, resetUserPasswordAction, updateUserAction } from '../actions';
 
 export const metadata = { title: 'User details' };
 
@@ -108,6 +108,16 @@ export default async function UserDetailPage({
                   Deactivate user
                 </Button>
               </div>
+            </form>
+          )}
+          {!isSelf && actor?.permissions.includes('user.reset_password') && (
+            <form action={resetUserPasswordAction} className="border-t border-ink-100 pt-4">
+              <input type="hidden" name="userId" value={user.id} />
+              <Field label="Reissue temporary password">
+                <Input name="temporaryPassword" type="password" minLength={12} required autoComplete="new-password" placeholder="New temporary password" />
+              </Field>
+              <p className="mt-2 text-xs text-ink-500">This revokes active sessions and requires a password change at the next sign-in. Copy the email above and this password before submitting.</p>
+              <div className="mt-3 flex justify-end"><Button type="submit" variant="outline"><KeyRound className="mr-2 h-4 w-4" />Reissue credentials</Button></div>
             </form>
           )}
         </section>

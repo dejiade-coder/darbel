@@ -90,6 +90,17 @@ export async function deactivateUserAction(formData: FormData): Promise<void> {
   }
 }
 
+export async function resetUserPasswordAction(formData: FormData): Promise<void> {
+  const userId = String(formData.get('userId') ?? '');
+  try {
+    await apiFetch(`/users/${encodeURIComponent(userId)}/reset-password`, { method: 'POST', authenticated: true, body: { temporaryPassword: String(formData.get('temporaryPassword') ?? '') } });
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : 'Could not reset the password.';
+    redirect(`/dashboard/users/${userId}?${resultParam('error', message)}`);
+  }
+  redirect(`/dashboard/users/${userId}?${resultParam('success', 'Temporary password issued. Share it securely; active sessions were revoked.')}`);
+}
+
 function isNextRedirect(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'digest' in error &&
     typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT');

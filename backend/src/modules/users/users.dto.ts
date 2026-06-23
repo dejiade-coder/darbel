@@ -22,6 +22,11 @@ export const AssignRolesDto = z.object({
 });
 export type AssignRolesDto = z.infer<typeof AssignRolesDto>;
 
+export const ResetUserPasswordDto = z.object({
+  temporaryPassword: z.string().min(12).max(256),
+});
+export type ResetUserPasswordDto = z.infer<typeof ResetUserPasswordDto>;
+
 export const ListUsersQueryDto = z.object({
   q: z.string().max(100).optional(),
   isActive: z.coerce.boolean().optional(),
