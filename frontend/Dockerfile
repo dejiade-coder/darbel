@@ -14,6 +14,7 @@ COPY postcss.config.js ./
 COPY tailwind.config.js ./
 COPY tsconfig.json ./
 COPY src ./src
+RUN mkdir -p public
 COPY public ./public
 RUN npm run build
 
