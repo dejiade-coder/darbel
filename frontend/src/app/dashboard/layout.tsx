@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import type React from 'react';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
 import { Sidebar } from '@/components/layout/sidebar';
 import { TopBar } from '@/components/layout/top-bar';
@@ -12,6 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Refresh profile from server so we always have the latest fullName/permissions
   let profile: UserPublic | null = null;
   let brandName = 'Darbel';
+  let accentColor = '#0f5257';
   try {
     profile = await apiFetch<UserPublic>('/users/me', { authenticated: true });
   } catch (e) {
@@ -21,14 +23,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // Fall through with claims-only context; the UI degrades gracefully.
   }
   try {
-    const branding = await apiFetch<{ applicationName: string }>('/tenant-settings/branding', { authenticated: true });
+    const branding = await apiFetch<{ applicationName: string; accentColor: string }>('/tenant-settings/branding', { authenticated: true });
     brandName = branding.applicationName || brandName;
+    accentColor = branding.accentColor || accentColor;
   } catch {}
 
   return (
-    <div className="flex min-h-screen bg-parchment">
+    <div className="flex min-h-screen bg-parchment" style={{ '--tenant-accent': accentColor } as React.CSSProperties}>
       <div className="print:hidden">
-        <Sidebar permissions={actor.permissions} roleCodes={profile?.roles.map((role) => role.code) ?? actor.roleCodes} brandName={brandName} />
+        <Sidebar permissions={actor.permissions} roleCodes={profile?.roles.map((role) => role.code) ?? actor.roleCodes} brandName={brandName} accentColor={accentColor} />
       </div>
       <div className="flex flex-1 flex-col print:block print:w-full">
         <div className="print:hidden">
@@ -37,6 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             email={actor.email}
             isPlatformOperator={actor.isPlatformOperator}
             mfaEnabled={profile?.mfaEnabled ?? false}
+            accentColor={accentColor}
           />
         </div>
         <main className="flex-1 px-4 py-5 sm:px-8 sm:py-8 print:p-0">

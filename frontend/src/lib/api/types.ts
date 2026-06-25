@@ -58,6 +58,11 @@ export interface TenantPublic {
   isActive: boolean;
   createdAt: string;
   userCount: number;
+  registrationCount: number;
+  paymentCount: number;
+  medicalScreeningCount: number;
+  certificateCount: number;
+  validCertificateCount: number;
 }
 
 export interface RolePublic {

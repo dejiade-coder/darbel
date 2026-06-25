@@ -156,8 +156,23 @@ export default async function SettingsPage() {
 
         {actor.permissions.includes('tenant.update_own') && (
           <form action={updateBrandingAction} className="rounded-sm border border-ink-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-ink-900">Organization branding</h2><p className="mt-1 text-sm text-ink-600">Set the identity your staff see in this tenant workspace.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_110px]"><Input name="applicationName" defaultValue={branding.applicationName} required /><Input name="accentColor" type="color" defaultValue={branding.accentColor} title="Accent color" /></div>
+            <h2 className="text-base font-semibold text-ink-900">Organization branding</h2>
+            <p className="mt-1 text-sm text-ink-600">Set the identity your staff see in this tenant workspace.</p>
+            <div className="mt-4 rounded-sm border border-ink-100 bg-ink-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-sm text-sm font-semibold text-white" style={{ backgroundColor: branding.accentColor }}>
+                  {branding.applicationName.slice(0, 2).toUpperCase()}
+                </span>
+                <div>
+                  <p className="font-display text-lg font-medium text-ink-950">{branding.applicationName}</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500">Tenant workspace preview</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_110px]">
+              <Input name="applicationName" defaultValue={branding.applicationName} required placeholder="Organization app name" />
+              <Input name="accentColor" type="color" defaultValue={branding.accentColor} title="Accent color" />
+            </div>
             <div className="mt-4 flex justify-end"><Button type="submit">Save branding</Button></div>
           </form>
         )}

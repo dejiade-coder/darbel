@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type React from 'react';
 import { BadgeCheck, ClipboardCheck, Download, FlaskConical, Search, ShieldCheck, TestTube2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,31 +165,48 @@ export default async function MedicalPage({
           <ClipboardCheck className="h-4 w-4 text-[#0f766e]" />
           <h2 className="text-base font-semibold text-ink-900">Ready for sample collection</h2>
         </div>
-        <div className="grid gap-3 p-5">
+        <div className="overflow-x-auto">
           {readyForCollection.length === 0 && (
             <p className="p-5 text-sm text-ink-500">No approved handlers are waiting for medical screening.</p>
           )}
-          {readyForCollection.map((item) => {
-            const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed handler';
-            return (
-              <div key={item.id} className="flex flex-col gap-4 rounded-sm border border-ink-100 bg-ink-50/40 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="font-medium text-ink-900">{name}</p>
-                  <p className="font-mono text-xs text-ink-500">{item.uid}</p>
-                  <p className="text-xs text-ink-500">
-                    Payment approved {item.approvedPaymentAt ? formatDate(item.approvedPaymentAt) : 'recently'}
-                  </p>
-                  <p className="text-xs text-ink-500">{item.tradeCategory || 'No category'} - {item.phone || 'No phone'}</p>
-                </div>
-                {canCollect && (
-                  <form action={collectSampleAction}>
-                    <input type="hidden" name="handlerRegistrationId" value={item.id} />
-                    <Button type="submit" size="sm">Attend and collect sample</Button>
-                  </form>
-                )}
-              </div>
-            );
-          })}
+          {readyForCollection.length > 0 && (
+            <table className="min-w-[920px] w-full border-collapse text-sm">
+              <thead className="bg-ink-50 text-left text-[10px] uppercase tracking-[0.16em] text-ink-500">
+                <tr>
+                  <Th>Handler</Th>
+                  <Th>UID</Th>
+                  <Th>Trade category</Th>
+                  <Th>Phone</Th>
+                  <Th>Payment approved</Th>
+                  <Th className="text-right">Action</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {readyForCollection.map((item) => {
+                  const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed handler';
+                  return (
+                    <tr key={item.id} className="border-t border-ink-100 transition hover:bg-accent/5">
+                      <Td className="font-semibold text-ink-900">{name}</Td>
+                      <Td><span className="font-mono text-xs">{item.uid}</span></Td>
+                      <Td>{item.tradeCategory || 'No category'}</Td>
+                      <Td>{item.phone || 'No phone'}</Td>
+                      <Td>{item.approvedPaymentAt ? formatDate(item.approvedPaymentAt) : 'Recently'}</Td>
+                      <Td>
+                        <div className="flex justify-end">
+                          {canCollect && (
+                            <form action={collectSampleAction}>
+                              <input type="hidden" name="handlerRegistrationId" value={item.id} />
+                              <Button type="submit" size="sm">Attend and collect sample</Button>
+                            </form>
+                          )}
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
@@ -197,85 +215,96 @@ export default async function MedicalPage({
           <FlaskConical className="h-4 w-4 text-[#0f766e]" />
           <h2 className="text-base font-semibold text-ink-900">Screening queue</h2>
         </div>
-        <div className="grid gap-4 p-5">
+        <div className="overflow-x-auto">
           {screenings.length === 0 && <p className="p-5 text-sm text-ink-500">No medical screenings yet.</p>}
-          {screenings.map((screening) => (
-            <div key={screening.id} className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm xl:grid-cols-[minmax(0,1fr)_minmax(300px,440px)]">
-              <div>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-ink-900">{screening.handlerName}</p>
-                    <p className="font-mono text-xs text-ink-500">{screening.uid}</p>
-                    <p className="mt-1 text-sm text-ink-600">{screening.tradeCategory || 'No category'}</p>
-                  </div>
-                  <span className={`inline-flex rounded-sm px-2 py-1 text-xs font-medium ${statusTone(screening.status)}`}>
-                  {displayStatus(screening.status)}
-                  </span>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <TestBadge label="Mantoux" value={displayTest(screening.mantouxResult)} detail={screening.mantouxIndurationMm !== null ? `${screening.mantouxIndurationMm} mm` : undefined} />
-                  <TestBadge label="Hepatitis B" value={displayTest(screening.hepatitisBResult)} />
-                  <TestBadge label="HIV" value={displayTest(screening.hivResult)} />
-                  <TestBadge label="Widal" value={displayTest(screening.widalResult)} />
-                </div>
-                {screening.labResultSummary && <p className="mt-3 text-sm text-ink-700">{screening.labResultSummary}</p>}
-                {screening.medicalOfficerNotes && <p className="mt-2 text-xs text-ink-500">Officer notes: {screening.medicalOfficerNotes}</p>}
-              </div>
-              <div className="space-y-3">
-                {canEnter && screening.status !== 'APPROVED' && screening.status !== 'REJECTED' && (
-                  <form action={enterResultAction} className="space-y-3 rounded-[8px] border border-ink-200 bg-ink-50 p-4">
-                    <input type="hidden" name="screeningId" value={screening.id} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <ResultSelect name="mantouxResult" label="Mantoux" defaultValue={screening.mantouxResult ?? 'NEGATIVE'} />
-                      <label className="space-y-1 text-xs font-medium text-ink-700">
-                        <span>Mantoux induration (mm)</span>
-                        <input
-                          name="mantouxIndurationMm"
-                          type="number"
-                          min={0}
-                          max={50}
-                          defaultValue={screening.mantouxIndurationMm ?? ''}
-                          className="w-full rounded-[8px] border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15"
-                        />
-                      </label>
-                      <ResultSelect name="hepatitisBResult" label="Hepatitis B" defaultValue={screening.hepatitisBResult ?? 'NEGATIVE'} />
-                      <ResultSelect name="hivResult" label="HIV" defaultValue={screening.hivResult ?? 'NEGATIVE'} />
-                      <ResultSelect name="widalResult" label="Widal test" defaultValue={screening.widalResult ?? 'NEGATIVE'} />
-                      <label className="space-y-1 text-xs font-medium text-ink-700">
-                        <span>Fitness decision</span>
-                        <select name="fitnessStatus" className="w-full rounded-[8px] border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15" defaultValue={screening.fitnessStatus ?? 'FIT'}>
-                          <option value="FIT">Fit</option>
-                          <option value="UNFIT">Unfit</option>
-                          <option value="REQUIRES_REVIEW">Requires review</option>
-                        </select>
-                      </label>
-                    </div>
-                    <textarea name="labResultSummary" rows={2} placeholder="Clinical summary" className="w-full rounded-[8px] border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15" defaultValue={screening.labResultSummary ?? ''} />
-                    <textarea name="medicalOfficerNotes" rows={2} placeholder="Medical officer notes" className="w-full rounded-[8px] border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15" defaultValue={screening.medicalOfficerNotes ?? ''} />
-                    <Button type="submit" size="sm" variant="outline">Save result</Button>
-                  </form>
-                )}
-                {canReview && screening.status === 'RESULT_ENTERED' && screening.fitnessStatus === 'FIT' && (
-                  <form action={reviewScreeningAction} className="flex flex-wrap gap-2">
-                    <input type="hidden" name="screeningId" value={screening.id} />
-                    <input type="hidden" name="approved" value="true" />
-                    <Button type="submit" size="sm">Approve and issue certificate</Button>
-                  </form>
-                )}
-                {canReview && screening.status === 'RESULT_ENTERED' && screening.fitnessStatus !== 'FIT' && (
-                  <div className="space-y-3 rounded-[8px] border border-amber-200 bg-amber-50 p-4 text-xs text-ink-700">
-                    <p>Certificate approval is available only when the saved fitness decision is Fit.</p>
-                    <form action={reviewScreeningAction} className="space-y-2">
-                      <input type="hidden" name="screeningId" value={screening.id} />
-                      <input type="hidden" name="approved" value="false" />
-                      <textarea name="reviewNotes" rows={2} placeholder="Rejection notes" className="w-full rounded-[8px] border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/15" />
-                      <Button type="submit" size="sm" variant="outline">Reject result</Button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+          {screenings.length > 0 && (
+            <table className="min-w-[1220px] w-full border-collapse text-sm">
+              <thead className="bg-ink-50 text-left text-[10px] uppercase tracking-[0.16em] text-ink-500">
+                <tr>
+                  <Th>Handler</Th>
+                  <Th>UID</Th>
+                  <Th>Status</Th>
+                  <Th>Mantoux</Th>
+                  <Th>Hepatitis B</Th>
+                  <Th>HIV</Th>
+                  <Th>Widal</Th>
+                  <Th>Fitness</Th>
+                  <Th className="min-w-[360px]">Officer action</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {screenings.map((screening) => (
+                  <tr key={screening.id} className="border-t border-ink-100 align-top transition hover:bg-accent/5">
+                    <Td>
+                      <p className="font-semibold text-ink-900">{screening.handlerName}</p>
+                      <p className="mt-0.5 text-xs text-ink-500">{screening.tradeCategory || 'No category'}</p>
+                    </Td>
+                    <Td><span className="font-mono text-xs">{screening.uid}</span></Td>
+                    <Td>
+                      <span className={`inline-flex rounded-sm px-2 py-1 text-xs font-medium ${statusTone(screening.status)}`}>
+                        {displayStatus(screening.status)}
+                      </span>
+                    </Td>
+                    <Td>{displayTest(screening.mantouxResult)}{screening.mantouxIndurationMm !== null ? ` (${screening.mantouxIndurationMm} mm)` : ''}</Td>
+                    <Td>{displayTest(screening.hepatitisBResult)}</Td>
+                    <Td>{displayTest(screening.hivResult)}</Td>
+                    <Td>{displayTest(screening.widalResult)}</Td>
+                    <Td>{screening.fitnessStatus ? displayFitness(screening.fitnessStatus) : 'Pending'}</Td>
+                    <Td>
+                      <div className="space-y-3">
+                        {screening.labResultSummary && <p className="text-xs text-ink-600">{screening.labResultSummary}</p>}
+                        {screening.medicalOfficerNotes && <p className="text-xs text-ink-500">Notes: {screening.medicalOfficerNotes}</p>}
+                        {canEnter && screening.status !== 'APPROVED' && screening.status !== 'REJECTED' && (
+                          <details className="rounded-sm border border-ink-200 bg-white p-3">
+                            <summary className="cursor-pointer text-xs font-semibold text-accent">Enter or update result</summary>
+                            <form action={enterResultAction} className="mt-3 space-y-3">
+                              <input type="hidden" name="screeningId" value={screening.id} />
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <ResultSelect name="mantouxResult" label="Mantoux" defaultValue={screening.mantouxResult ?? 'NEGATIVE'} />
+                                <label className="space-y-1 text-xs font-medium text-ink-700">
+                                  <span>Mantoux induration (mm)</span>
+                                  <input name="mantouxIndurationMm" type="number" min={0} max={50} defaultValue={screening.mantouxIndurationMm ?? ''} className="w-full rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15" />
+                                </label>
+                                <ResultSelect name="hepatitisBResult" label="Hepatitis B" defaultValue={screening.hepatitisBResult ?? 'NEGATIVE'} />
+                                <ResultSelect name="hivResult" label="HIV" defaultValue={screening.hivResult ?? 'NEGATIVE'} />
+                                <ResultSelect name="widalResult" label="Widal test" defaultValue={screening.widalResult ?? 'NEGATIVE'} />
+                                <label className="space-y-1 text-xs font-medium text-ink-700">
+                                  <span>Fitness decision</span>
+                                  <select name="fitnessStatus" className="w-full rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15" defaultValue={screening.fitnessStatus ?? 'FIT'}>
+                                    <option value="FIT">Fit</option>
+                                    <option value="UNFIT">Unfit</option>
+                                    <option value="REQUIRES_REVIEW">Requires review</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <textarea name="labResultSummary" rows={2} placeholder="Clinical summary" className="w-full rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15" defaultValue={screening.labResultSummary ?? ''} />
+                              <textarea name="medicalOfficerNotes" rows={2} placeholder="Medical officer notes" className="w-full rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15" defaultValue={screening.medicalOfficerNotes ?? ''} />
+                              <Button type="submit" size="sm" variant="outline">Save result</Button>
+                            </form>
+                          </details>
+                        )}
+                        {canReview && screening.status === 'RESULT_ENTERED' && screening.fitnessStatus === 'FIT' && (
+                          <form action={reviewScreeningAction}>
+                            <input type="hidden" name="screeningId" value={screening.id} />
+                            <input type="hidden" name="approved" value="true" />
+                            <Button type="submit" size="sm">Approve and issue certificate</Button>
+                          </form>
+                        )}
+                        {canReview && screening.status === 'RESULT_ENTERED' && screening.fitnessStatus !== 'FIT' && (
+                          <form action={reviewScreeningAction} className="space-y-2">
+                            <input type="hidden" name="screeningId" value={screening.id} />
+                            <input type="hidden" name="approved" value="false" />
+                            <textarea name="reviewNotes" rows={2} placeholder="Rejection notes" className="w-full rounded-sm border border-ink-200 px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15" />
+                            <Button type="submit" size="sm" variant="outline">Reject result</Button>
+                          </form>
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </div>
@@ -365,6 +394,20 @@ function displayTest(value: TestResult | null): string {
   if (value === 'INDETERMINATE') return 'Indeterminate';
   if (value === 'NOT_DONE') return 'Not done';
   return 'Pending';
+}
+
+function displayFitness(value: NonNullable<Screening['fitnessStatus']>): string {
+  if (value === 'FIT') return 'Fit';
+  if (value === 'UNFIT') return 'Unfit';
+  return 'Requires review';
+}
+
+function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <th className={`whitespace-nowrap px-4 py-3 font-semibold ${className}`}>{children}</th>;
+}
+
+function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <td className={`align-middle px-4 py-3 text-ink-700 ${className}`}>{children}</td>;
 }
 
 function formatDate(value: string): string {

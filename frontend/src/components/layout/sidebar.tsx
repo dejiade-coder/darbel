@@ -47,7 +47,17 @@ const ITEMS: NavItem[] = [
   { href: '/dashboard/trade-categories', label: 'Trade Categories', icon: Tag, requireAny: ['trade.set_fee'] },
 ];
 
-export function Sidebar({ permissions, roleCodes = [], brandName = 'Darbel' }: { permissions: string[]; roleCodes?: string[]; brandName?: string }) {
+export function Sidebar({
+  permissions,
+  roleCodes = [],
+  brandName = 'Darbel',
+  accentColor = '#0f5257',
+}: {
+  permissions: string[];
+  roleCodes?: string[];
+  brandName?: string;
+  accentColor?: string;
+}) {
   const pathname = usePathname();
   const workspace = getRestrictedWorkspace(roleCodes);
   const visible = ITEMS.filter(
@@ -59,21 +69,21 @@ export function Sidebar({ permissions, roleCodes = [], brandName = 'Darbel' }: {
   return (
     <>
       <aside className="hidden w-64 flex-col border-r border-ink-200 bg-white lg:flex">
-        <Brand name={brandName} />
-        <Navigation items={visible} pathname={pathname} />
+        <Brand name={brandName} accentColor={accentColor} />
+        <Navigation items={visible} pathname={pathname} accentColor={accentColor} />
         <footer className="border-t border-ink-100 px-4 py-3 text-[10px] uppercase tracking-wider text-ink-400">
           Phase 1 - v0.1.0
         </footer>
       </aside>
-      <MobileNavigation items={visible} pathname={pathname} brandName={brandName} />
+      <MobileNavigation items={visible} pathname={pathname} brandName={brandName} accentColor={accentColor} />
     </>
   );
 }
 
-function Brand({ name = 'Darbel' }: { name?: string }) {
+function Brand({ name = 'Darbel', accentColor = '#0f5257' }: { name?: string; accentColor?: string }) {
   return (
     <div className="flex h-16 items-center gap-3 px-6">
-      <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-accent text-parchment">
+      <div className="flex h-8 w-8 items-center justify-center rounded-sm text-parchment" style={{ backgroundColor: accentColor }}>
         <ShieldCheck className="h-4 w-4" strokeWidth={1.5} />
       </div>
       <div>
@@ -87,9 +97,11 @@ function Brand({ name = 'Darbel' }: { name?: string }) {
 function Navigation({
   items,
   pathname,
+  accentColor,
 }: {
   items: NavItem[];
   pathname: string;
+  accentColor?: string;
 }) {
   return (
     <nav className="flex-1 space-y-0.5 px-3 py-5">
@@ -103,8 +115,9 @@ function Navigation({
             href={item.href}
             className={cn(
               'flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm transition-colors',
-              active ? 'bg-accent/5 font-medium text-accent' : 'text-ink-700 hover:bg-ink-50',
+              active ? 'font-medium' : 'text-ink-700 hover:bg-ink-50',
             )}
+            style={active ? { backgroundColor: `${accentColor}12`, color: accentColor } : undefined}
           >
             <Icon className="h-4 w-4" strokeWidth={1.6} />
             {item.label}
@@ -115,7 +128,17 @@ function Navigation({
   );
 }
 
-function MobileNavigation({ items, pathname, brandName }: { items: NavItem[]; pathname: string; brandName: string }) {
+function MobileNavigation({
+  items,
+  pathname,
+  brandName,
+  accentColor,
+}: {
+  items: NavItem[];
+  pathname: string;
+  brandName: string;
+  accentColor: string;
+}) {
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -132,7 +155,7 @@ function MobileNavigation({ items, pathname, brandName }: { items: NavItem[]; pa
         <Dialog.Overlay className="fixed inset-0 z-40 bg-ink-900/30 backdrop-blur-[1px] lg:hidden" />
         <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,86vw)] flex-col bg-white shadow-xl lg:hidden">
           <div className="flex items-center justify-between border-b border-ink-200">
-            <Brand name={brandName} />
+            <Brand name={brandName} accentColor={accentColor} />
             <Dialog.Close asChild>
               <button
                 type="button"
@@ -146,7 +169,7 @@ function MobileNavigation({ items, pathname, brandName }: { items: NavItem[]; pa
           </div>
           <Dialog.Close asChild>
             <div>
-              <Navigation items={items} pathname={pathname} />
+              <Navigation items={items} pathname={pathname} accentColor={accentColor} />
             </div>
           </Dialog.Close>
         </Dialog.Content>

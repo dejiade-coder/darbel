@@ -14,6 +14,11 @@ export interface TenantPublicDto {
   isActive: boolean;
   createdAt: string;
   userCount: number;
+  registrationCount: number;
+  paymentCount: number;
+  medicalScreeningCount: number;
+  certificateCount: number;
+  validCertificateCount: number;
 }
 
 @Injectable()
@@ -24,7 +29,18 @@ export class TenantsService {
     return this.prisma.runWithContext(ctx, async (tx) => {
       const tenants = await tx.tenant.findMany({
         orderBy: [{ isPlatformOperator: 'desc' }, { displayName: 'asc' }],
-        include: { _count: { select: { users: true } } },
+        include: {
+          _count: {
+            select: {
+              users: true,
+              handlerRegistrations: true,
+              payments: true,
+              medicalScreenings: true,
+              certificates: true,
+            },
+          },
+          certificates: { where: { status: 'VALID' }, select: { id: true } },
+        },
       });
       return tenants.map(toPublic);
     });
@@ -65,16 +81,33 @@ export class TenantsService {
         },
       });
       await tx.userRole.create({ data: { userId: admin.id, roleId: adminRole.id, assignedBy: ctx.userId } });
-      return toPublic({ ...tenant, _count: { users: 1 } });
+      return toPublic({
+        ...tenant,
+        _count: { users: 1, handlerRegistrations: 0, payments: 0, medicalScreenings: 0, certificates: 0 },
+        certificates: [],
+      });
     });
   }
 
   async updateStatus(ctx: ActorContext, id: string, dto: UpdateTenantStatusDto): Promise<TenantPublicDto> {
     return this.prisma.runWithContext(ctx, async (tx) => {
-      const tenant = await tx.tenant.findUnique({ where: { id }, include: { _count: { select: { users: true } } } });
+      const tenant = await tx.tenant.findUnique({
+        where: { id },
+        include: {
+          _count: { select: { users: true, handlerRegistrations: true, payments: true, medicalScreenings: true, certificates: true } },
+          certificates: { where: { status: 'VALID' }, select: { id: true } },
+        },
+      });
       if (!tenant) throw new ResourceNotFoundException('Tenant', id);
       if (tenant.isPlatformOperator && !dto.isActive) throw new ResourceConflictException('The platform operator cannot be suspended');
-      const updated = await tx.tenant.update({ where: { id }, data: { isActive: dto.isActive }, include: { _count: { select: { users: true } } } });
+      const updated = await tx.tenant.update({
+        where: { id },
+        data: { isActive: dto.isActive },
+        include: {
+          _count: { select: { users: true, handlerRegistrations: true, payments: true, medicalScreenings: true, certificates: true } },
+          certificates: { where: { status: 'VALID' }, select: { id: true } },
+        },
+      });
       return toPublic(updated);
     });
   }
@@ -82,7 +115,23 @@ export class TenantsService {
 
 function toPublic(tenant: {
   id: string; code: string; legalName: string; displayName: string; contactEmail: string;
-  contactPhone: string | null; isActive: boolean; createdAt: Date; _count: { users: number };
+  contactPhone: string | null; isActive: boolean; createdAt: Date; _count: {
+    users: number;
+    handlerRegistrations?: number;
+    payments?: number;
+    medicalScreenings?: number;
+    certificates?: number;
+  };
+  certificates?: Array<{ id: string }>;
 }): TenantPublicDto {
-  return { ...tenant, createdAt: tenant.createdAt.toISOString(), userCount: tenant._count.users };
+  return {
+    ...tenant,
+    createdAt: tenant.createdAt.toISOString(),
+    userCount: tenant._count.users,
+    registrationCount: tenant._count.handlerRegistrations ?? 0,
+    paymentCount: tenant._count.payments ?? 0,
+    medicalScreeningCount: tenant._count.medicalScreenings ?? 0,
+    certificateCount: tenant._count.certificates ?? 0,
+    validCertificateCount: tenant.certificates?.length ?? 0,
+  };
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type React from 'react';
 import { ArrowRight, CheckCircle2, CreditCard, Filter, ReceiptText, Search, ShieldCheck, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,60 +171,74 @@ export default async function PaymentsPage({
             {q || statusFilter ? 'No payments match this filter.' : 'No payments recorded yet.'}
           </p>
         )}
-        <div className="grid gap-4 p-5">
-          {items.map((payment) => {
-            const status = displayStatus(payment.status);
-            return (
-              <div key={payment.id} className="grid gap-4 rounded-sm border border-ink-100 bg-white p-4 shadow-sm xl:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-ink-900">{payment.handlerName}</p>
-                      <p className="mt-1 text-xs text-ink-500">{payment.tradeCategory || 'No category'}</p>
-                      <p className="mt-1 font-mono text-xs text-ink-500">
+        <div className="overflow-x-auto">
+          <table className="min-w-[1040px] w-full border-collapse text-sm">
+            <thead className="bg-ink-50 text-left text-[10px] uppercase tracking-[0.16em] text-ink-500">
+              <tr>
+                <Th>Handler</Th>
+                <Th>UID / Receipt</Th>
+                <Th>Category</Th>
+                <Th className="text-right">Amount</Th>
+                <Th>Method</Th>
+                <Th>Status</Th>
+                <Th>Paid</Th>
+                <Th>Approved</Th>
+                <Th className="text-right">Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((payment) => {
+                const status = displayStatus(payment.status);
+                return (
+                  <tr key={payment.id} className="border-t border-ink-100 transition hover:bg-accent/5">
+                    <Td>
+                      <p className="font-semibold text-ink-900">{payment.handlerName}</p>
+                      <p className="mt-0.5 text-xs text-ink-500">{payment.handlerRegistrationId.slice(0, 8)}</p>
+                    </Td>
+                    <Td>
+                      <span className="font-mono text-xs text-ink-700">
                         {payment.registrationUid ?? payment.receiptNumber ?? payment.id}
-                      </p>
-                    </div>
-                    <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
-                      {status}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs text-ink-600">
-                    <span className="rounded-sm bg-ink-50 px-2.5 py-1 font-semibold text-ink-900">
-                      {payment.currency} {Number(payment.amount).toLocaleString()}
-                    </span>
-                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">{displayMethod(payment.method)}</span>
-                    <span className="rounded-sm bg-ink-50 px-2.5 py-1">Paid {formatDate(payment.paidAt)}</span>
-                    {payment.approvedAt && (
-                      <span className="rounded-sm bg-success/10 px-2.5 py-1 font-medium text-success">
-                        Approved {formatDate(payment.approvedAt)}
                       </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  {canApprovePayment &&
-                    payment.status === 'RECORDED' &&
-                    !payment.registrationHasApprovedPayment && (
-                    <form action={approvePaymentFromListAction}>
-                      <input type="hidden" name="paymentId" value={payment.id} />
-                      <input type="hidden" name="registrationId" value={payment.handlerRegistrationId} />
-                      <Button type="submit" variant="outline" size="sm">
-                        <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                        Approve
-                      </Button>
-                    </form>
-                  )}
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
-                      Open
-                      <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+                    </Td>
+                    <Td>{payment.tradeCategory || 'No category'}</Td>
+                    <Td className="text-right font-mono font-semibold text-ink-900">
+                      {payment.currency} {Number(payment.amount).toLocaleString()}
+                    </Td>
+                    <Td>{displayMethod(payment.method)}</Td>
+                    <Td>
+                      <span className={`rounded-sm px-2 py-1 text-xs font-medium ${statusStyles[status]}`}>
+                        {status}
+                      </span>
+                    </Td>
+                    <Td>{formatDate(payment.paidAt)}</Td>
+                    <Td>{payment.approvedAt ? formatDate(payment.approvedAt) : '-'}</Td>
+                    <Td>
+                      <div className="flex justify-end gap-2">
+                        {canApprovePayment &&
+                          payment.status === 'RECORDED' &&
+                          !payment.registrationHasApprovedPayment && (
+                            <form action={approvePaymentFromListAction}>
+                              <input type="hidden" name="paymentId" value={payment.id} />
+                              <input type="hidden" name="registrationId" value={payment.handlerRegistrationId} />
+                              <Button type="submit" variant="outline" size="sm">
+                                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                                Approve
+                              </Button>
+                            </form>
+                          )}
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/dashboard/registrations/${payment.handlerRegistrationId}`}>
+                            Open
+                            <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
         {nextCursor && (
           <div className="border-t border-ink-100 p-5 text-right">
@@ -291,4 +306,12 @@ function Metric({
       <p className="mt-1 text-xs text-ink-500">{detail}</p>
     </div>
   );
+}
+
+function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <th className={`whitespace-nowrap px-4 py-3 font-semibold ${className}`}>{children}</th>;
+}
+
+function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <td className={`align-middle px-4 py-3 text-ink-700 ${className}`}>{children}</td>;
 }

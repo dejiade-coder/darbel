@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { apiFetch, ApiError } from '@/lib/api/server-client';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
 import { CertificateActions } from './certificate-actions';
+import { InspectorScanner } from './inspector-scanner';
 
 export const metadata = { title: 'Certificates' };
 
@@ -56,6 +57,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
   const actor = await readActorFromAccessToken();
   const canRevoke = actor?.permissions.includes('certificate.revoke') ?? false;
   const canRenew = actor?.permissions.includes('certificate.issue') ?? false;
+  const isInspector = actor?.roleCodes.includes('INSPECTOR') ?? false;
   try {
     const result = await apiFetch<{ items: Certificate[] }>(
       `/certificates${buildQuery({ q, status })}`,
@@ -109,21 +111,24 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
       </section>
 
       <section className="rounded-sm border border-ink-200 bg-white p-4">
-        <form action="/dashboard/certificates" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-            <Input name="q" defaultValue={q} className="pl-9" placeholder="Search by UID, handler name, or phone" />
-            {status && <input type="hidden" name="status" value={status} />}
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit">Search</Button>
-            {(q || status) && (
-              <Button asChild type="button" variant="outline">
-                <Link href="/dashboard/certificates">Clear</Link>
-              </Button>
-            )}
-          </div>
-        </form>
+        <div className={isInspector ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]' : ''}>
+          <form action="/dashboard/certificates" className="grid content-start gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+              <Input name="q" defaultValue={q} className="pl-9" placeholder="Search by UID, handler name, or phone" />
+              {status && <input type="hidden" name="status" value={status} />}
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Search</Button>
+              {(q || status) && (
+                <Button asChild type="button" variant="outline">
+                  <Link href="/dashboard/certificates">Clear</Link>
+                </Button>
+              )}
+            </div>
+          </form>
+          {isInspector && <InspectorScanner />}
+        </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {STATUS_TABS.map((tab) => (
             <Button key={tab.value || 'all'} asChild size="sm" variant={status === tab.value ? 'default' : 'outline'}>

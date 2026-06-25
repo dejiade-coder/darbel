@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { readActorFromAccessToken } from '@/lib/auth/claims';
 import { LoginForm } from './login-form';
 import { loginAction } from './actions';
@@ -26,6 +27,12 @@ export default async function LoginPage({
           </h1>
         </div>
         <LoginForm action={loginAction} initialError={params?.error} />
+        <p className="mt-5 text-center text-sm text-white/60">
+          Need access?{' '}
+          <Link href="/signup" className="font-semibold text-white underline-offset-4 hover:underline">
+            Request signup
+          </Link>
+        </p>
         <p className="mt-8 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
           Authorised personnel only
         </p>

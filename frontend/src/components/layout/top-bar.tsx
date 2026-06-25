@@ -10,9 +10,10 @@ interface TopBarProps {
   email: string;
   isPlatformOperator: boolean;
   mfaEnabled: boolean;
+  accentColor?: string;
 }
 
-export function TopBar({ fullName, email, isPlatformOperator, mfaEnabled }: TopBarProps) {
+export function TopBar({ fullName, email, isPlatformOperator, mfaEnabled, accentColor = '#0f5257' }: TopBarProps) {
   const [isPending, startTransition] = useTransition();
   const initials = getInitials(fullName);
 
@@ -40,7 +41,10 @@ export function TopBar({ fullName, email, isPlatformOperator, mfaEnabled }: TopB
             <p className="text-sm font-medium leading-tight text-ink-800">{fullName}</p>
             <p className="text-xs text-ink-500">{email}</p>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-xs font-medium text-accent">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-medium"
+            style={{ backgroundColor: `${accentColor}1A`, color: accentColor }}
+          >
             {initials}
           </div>
         </div>

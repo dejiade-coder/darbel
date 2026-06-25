@@ -257,12 +257,11 @@ export default async function DashboardHome() {
 function RestrictedWorkspaceHome({ workspace }: { workspace: Exclude<RestrictedWorkspace, null> }) {
   const isFinance = workspace === 'finance' || workspace === 'finance_auditor';
   const isAuditor = workspace === 'auditor' || workspace === 'finance_auditor';
-  const title = workspace === 'finance' ? 'Finance workspace' : workspace === 'auditor' ? 'Audit workspace' : 'Finance and audit workspace';
-  const description = workspace === 'finance'
-    ? 'Review and manage payment activity for your organization.'
-    : workspace === 'auditor'
-      ? 'Review compliance activity, records, and reporting without operational controls.'
-      : 'Review payment activity, audit records, and management reporting.';
+  const isInspector = workspace === 'inspector';
+  const isMedical = workspace === 'medical' || workspace === 'medical_lab';
+  const isLab = workspace === 'lab' || workspace === 'medical_lab';
+  const title = getWorkspaceTitle(workspace);
+  const description = getWorkspaceDescription(workspace);
 
   return (
     <div className="space-y-6">
@@ -273,11 +272,34 @@ function RestrictedWorkspaceHome({ workspace }: { workspace: Exclude<RestrictedW
       </header>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {isFinance && <WorkspaceLink href="/dashboard/payments" icon={CreditCard} title="Payments" description="Record, review, approve, and reconcile payment activity." />}
-        {isAuditor && <WorkspaceLink href="/dashboard/audit" icon={FileSearch} title="Audit log" description="Review the recorded history of compliance and account activity." />}
-        <WorkspaceLink href="/dashboard/reports" icon={BarChart3} title="Reports" description="Open management reports and permitted exports." />
+        {isAuditor && <WorkspaceLink href="/dashboard/certificates" icon={BadgeCheck} title="Certificate review" description="Review certificate status, appeal posture, and validity records." />}
+        {isAuditor && <WorkspaceLink href="/dashboard/medical" icon={FlaskConical} title="Medical review" description="Review medical screening outcomes without operational controls." />}
+        {isInspector && <WorkspaceLink href="/dashboard/certificates" icon={BadgeCheck} title="Barcode and UID checks" description="Scan certificates or search UIDs during field verification." />}
+        {(isMedical || isLab) && <WorkspaceLink href="/dashboard/medical" icon={FlaskConical} title="Medical screening" description="Attend handlers, collect samples, and record lab results." />}
+        {!isInspector && <WorkspaceLink href="/dashboard/reports" icon={BarChart3} title="Reports" description="Open management reports and permitted exports." />}
       </section>
     </div>
   );
+}
+
+function getWorkspaceTitle(workspace: Exclude<RestrictedWorkspace, null>): string {
+  if (workspace === 'finance') return 'Finance workspace';
+  if (workspace === 'auditor') return 'Compliance review workspace';
+  if (workspace === 'finance_auditor') return 'Finance and review workspace';
+  if (workspace === 'inspector') return 'Inspector workspace';
+  if (workspace === 'lab') return 'Lab technician workspace';
+  if (workspace === 'medical_lab') return 'Medical and lab workspace';
+  return 'Medical officer workspace';
+}
+
+function getWorkspaceDescription(workspace: Exclude<RestrictedWorkspace, null>): string {
+  if (workspace === 'finance') return 'Review and manage payment activity for your organization.';
+  if (workspace === 'auditor') return 'Review permitted compliance records and reports without access to raw audit logs.';
+  if (workspace === 'finance_auditor') return 'Review payment activity and compliance records without raw audit-log access.';
+  if (workspace === 'inspector') return 'Scan certificate barcodes and search UIDs during field verification.';
+  if (workspace === 'lab') return 'Collect samples and enter Mantoux, Hepatitis B, HIV, and Widal results.';
+  if (workspace === 'medical_lab') return 'Manage medical attendance, sample collection, lab results, and screening decisions.';
+  return 'Review screening outcomes and approve fit handlers for certification.';
 }
 
 function WorkspaceLink({ href, icon: Icon, title, description }: { href: string; icon: React.ElementType; title: string; description: string }) {
